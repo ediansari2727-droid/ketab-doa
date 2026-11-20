@@ -129,7 +129,7 @@ button{cursor:pointer}
 .chk{width:2.3rem;height:2.3rem;border-radius:50%;border:2px solid var(--cc);background:var(--paper);display:grid;place-items:center;font-size:1.1rem;color:transparent;transition:.15s}
 .chk[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:#fff}
 .card.is-done .t strong{color:var(--muted)}
-.card.off{opacity:.55}
+.card.off{opacity:.78}
 .card .handle,.card .tog{display:none}
 .editing .card{grid-template-columns:auto auto 1fr auto}
 .editing .card .handle{display:grid;place-items:center;width:2rem;height:2.6rem;font-size:1.3rem;color:var(--muted);cursor:grab;touch-action:none;border:0;background:none}
@@ -216,3 +216,4 @@ button{cursor:pointer}
 .toast.show{opacity:1;transform:translateX(-50%)}
 [hidden]{display:none!important}
 .page-h{margin:calc(env(safe-area-inset-top,0px) + 1rem) 0 1rem;font-size:1.4rem;color:var(--lapis)}
+@media (max-width:600px){.ar,.q{text-align:right}}

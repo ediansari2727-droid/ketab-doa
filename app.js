@@ -13,6 +13,9 @@
     amal: { b: 'ص', when: 'هر روز، حتی اندک' },
     sources: { b: 'م', when: 'پیوست' }
   };
+  var SW = { s6: 'صبح و شام', s7: 'هنگام گرفتاری', s8: 'روزانه', s17: 'روزانه', s20: 'هر وقت خواستید', s21: 'هنگام اندوه', s23: 'روزانه', s29: 'هنگام تنگی روزی', s30: 'برای ادای وام', s49: 'هنگام آزار بدخواهان', s54: 'هنگام اندوه' };
+  Object.keys(SW).forEach(function (k) { META[k] = { b: fa(k.slice(1)), when: SW[k], off: k !== 's6' }; });
+  function defOn(id) { return !(META[id] && META[id].off); }
   var DEFAULT_ORDER = DUAS.map(function (d) { return d.id; }).filter(function (id) { return id !== 'sources'; });
   var KEY = 'doa-app-v1';
   var app = document.getElementById('app');
@@ -23,7 +26,7 @@
   try { st = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { st = {}; }
   function def(k, v) { if (st[k] === undefined) st[k] = v; }
   def('order', DEFAULT_ORDER.slice());
-  def('plan', DEFAULT_ORDER.reduce(function (o, id) { o[id] = true; return o; }, {}));
+  def('plan', DEFAULT_ORDER.reduce(function (o, id) { o[id] = defOn(id); return o; }, {}));
   def('log', {});
   def('ar', 0); def('fa', 0);
   def('far', '"Amiri",serif'); def('ffa', '"Vazirmatn",Tahoma,sans-serif');
@@ -32,7 +35,7 @@
   def('notified', {}); def('pos', {});
   def('tas', { i: 0, n: 0, goal: 33 });
   // new duas added later go to the end of the user's order
-  DEFAULT_ORDER.forEach(function (id) { if (st.order.indexOf(id) < 0) { st.order.push(id); st.plan[id] = true; } });
+  DEFAULT_ORDER.forEach(function (id) { if (st.order.indexOf(id) < 0) { st.order.push(id); st.plan[id] = defOn(id); } });
   st.order = st.order.filter(function (id) { return BY[id]; });
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} mirrorToSW(); }
 
@@ -119,7 +122,7 @@
       '<button class="handle" aria-label="جابه‌جا کردن">⋮⋮</button>' +
       '<a class="badge" href="#/d/' + id + '" tabindex="-1" aria-hidden="true">' + m.b + '</a>' +
       '<a class="t" href="#/d/' + id + '" style="text-decoration:none"><strong>' + d.title + '</strong><small>' + d.sub + '</small>' +
-      (on ? '<span class="when">' + m.when + '</span>' : '<span class="when">خارج از برنامهٔ روزانه</span>') + '</a>' +
+      (on ? '<span class="when">' + m.when + '</span>' : '<span class="when">' + ((META[id] || {}).when ? META[id].when + ' · ' : '') + 'خارج از برنامه</span>') + '</a>' +
       '<button class="chk" aria-pressed="' + done + '" aria-label="خواندم: ' + esc(d.title.replace(/<[^>]+>/g, '')) + '">✓</button>' +
       '<button class="sw tog" role="switch" aria-checked="' + on + '" aria-label="در برنامهٔ روزانه"></button>' +
       '</li>';
@@ -334,7 +337,7 @@
   }
   // the service worker can't read localStorage: give it a copy of what it needs
   function mirrorToSW() {
-    if (!('caches' in window)) return;
+    if (!('caches' in window) || location.protocol === 'file:') return;
     var m = { times: remTimes(), day: today(), left: planIds().length - countDone(), notified: st.notified[today()] || [], body: remindBody() };
     caches.open('doa-state').then(function (c) { c.put('state.json', new Response(JSON.stringify(m), { headers: { 'content-type': 'application/json' } })); }).catch(function () {});
   }
