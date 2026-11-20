@@ -277,3 +277,9 @@ body.has-mini{padding-bottom:calc(8.4rem + env(safe-area-inset-bottom,0px))}
 .star.share{left:2.9rem;color:var(--acc);font-size:1rem}
 .bk-t{display:block;width:100%;box-sizing:border-box;min-height:4.5rem;margin:.6rem 0;padding:.6rem;border-radius:12px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);font:inherit;font-size:.8rem;direction:ltr}
 .miss{margin:.5rem 0 0;padding:.4rem .7rem;border-radius:10px;font-size:.82rem;line-height:1.8;color:var(--muted);background:color-mix(in srgb,var(--gold) 14%,transparent);border:1px dashed color-mix(in srgb,var(--gold) 55%,transparent)}
+/* layout fix: never let long Arabic lines widen the frame; centered Arabic */
+.ch-b,.pa,.steps,.tips{grid-template-columns:minmax(0,1fr)}
+.ch-b>*,.pa>*,.steps>li,.tips>li{min-width:0;overflow-wrap:break-word}
+.ar-i{display:block;max-width:100%;text-align:center;margin:.35rem 0 .1rem}
+.ar,.q,.intro-ar{text-align:center;text-align-last:center}
+@media (max-width:600px){.ar,.q{text-align:center}}
