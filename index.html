@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>کتاب دعای روزانه</title>
+<meta name="theme-color" content="#14307A">
+<meta name="description" content="دعاها و سوره‌های روزانه با ترجمهٔ فارسی، صوت، یادآور و برنامهٔ روزانه">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app"></div>
+<nav class="tabs" id="tabs" aria-label="بخش‌ها">
+  <a href="#/" data-t="home"><span class="ti">۞</span>خانه</a>
+  <a href="#/tasbih" data-t="tasbih"><span class="ti">◎</span>تسبیح</a>
+  <a href="#/history" data-t="history"><span class="ti">▦</span>سابقه</a>
+  <a href="#/settings" data-t="settings"><span class="ti">⚙</span>تنظیمات</a>
+</nav>
+<div class="sheet-bg" id="sheet-bg" hidden></div>
+<section class="sheet" id="sheet" hidden aria-label="تنظیمات خواندن">
+  <div class="sheet-grip"></div>
+  <h3>تنظیمات خواندن</h3>
+  <div class="row"><label for="s-ar">اندازهٔ متن عربی</label><div class="stepper"><button data-step="ar:-1" aria-label="کوچک‌تر">−</button><output id="o-ar"></output><button data-step="ar:1" aria-label="بزرگ‌تر">+</button></div></div>
+  <div class="row"><label for="s-fa">اندازهٔ ترجمهٔ فارسی</label><div class="stepper"><button data-step="fa:-1" aria-label="کوچک‌تر">−</button><output id="o-fa"></output><button data-step="fa:1" aria-label="بزرگ‌تر">+</button></div></div>
+  <div class="row"><label for="s-far">خط عربی</label><select id="s-far">
+    <option value='"Amiri",serif'>امیری</option><option value='"Scheherazade New",serif'>شهرزاد</option><option value='"Noto Naskh Arabic",serif'>نسخ</option></select></div>
+  <div class="row"><label for="s-ffa">خط فارسی</label><select id="s-ffa">
+    <option value='"Vazirmatn",Tahoma,sans-serif'>وزیر</option><option value='"Noto Naskh Arabic",serif'>نسخ</option></select></div>
+  <div class="row"><span>نمایش ترجمه</span><button class="sw" id="s-tr" role="switch" aria-checked="true"></button></div>
+  <div class="row"><span>روشن ماندن صفحه هنگام خواندن</span><button class="sw" id="s-wake" role="switch" aria-checked="false"></button></div>
+  <div class="row"><span>پوسته</span><div class="seg" id="s-theme"><button data-v="auto">خودکار</button><button data-v="light">روشن</button><button data-v="dark">شب</button><button data-v="sepia">کاغذی</button></div></div>
+  <button class="btn wide" id="sheet-close">بستن</button>
+</section>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="content.js"></script>
+<script src="sortable.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
