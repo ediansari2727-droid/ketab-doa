@@ -21,5 +21,21 @@ note = ('<li><b>یازده دعای دیگر صحیفه (۶، ۷، ۸، ۱۷، �
         '<li><b>صوت این یازده دعا:</b> فایل‌هایی که خودتان از duas.org فرستادید.</li>')
 src = dict(src); src['body'] = src['body'].replace('</ul>', note + '</ul>', 1)
 out.append(src)
+# passages the duas.org reciter skips (checked by speech recognition + listening, 2026-11-20)
+MISS = {
+  'arsh': {6: 'قاری «فَلَا يَرُومُونَ النَّظَرَ إِلَيْكَ» را نخوانده است.',
+           9: 'قاری «وَمُنْكَرٍ وَنَكِيرٍ، وَرُومَانَ فَتَّانِ الْقُبُورِ» را نخوانده است (حدود دقیقهٔ ۴:۵۸).'},
+  's7':  {5: 'قاری «وَبِقُدْرَتِكَ أَوْرَدْتَهُ عَلَيَّ، وَبِسُلْطَانِكَ وَجَّهْتَهُ إِلَيَّ» را نخوانده است.',
+          6: 'قاری این بند را نخوانده است.',
+          11: 'این بند در صوت نیست؛ قاری دعا را با «یا ذا العرش العظیم» تمام می‌کند.'},
+  's20': {4: 'قاری از «وَعَبِّدْنِي لَكَ» تا «وَلَا تَمْحَقْهُ بِالْمَنِّ» را نخوانده است.',
+          5: 'قاری این بند را نخوانده است.'},
+}
+import re as _re
+for d in out:
+    for k, msg in MISS.get(d['id'], {}).items():
+        secs = d['body'].split('<section class="pa">')
+        secs[k] = secs[k].replace('</section>', '<p class="miss">🔇 ' + msg + '</p></section>', 1)
+        d['body'] = '<section class="pa">'.join(secs)
 open('/mnt/project-files/doa/app/content.js', 'w').write('window.DUAS=' + json.dumps(out, ensure_ascii=False) + ';')
 print(len(out), [d['id'] for d in out])
