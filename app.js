@@ -33,7 +33,7 @@
   def('tr', true); def('wake', false); def('theme', 'auto');
   def('rem', [{ t: '07:00', on: true }, { t: '21:30', on: true }]);
   def('notified', {}); def('pos', {});
-  def('tas', { i: 0, n: 0, goal: 33 });
+  def('tas', { i: 0, n: 0, goal: 33 }); def('fav', []); def('accent', 'lapis'); def('favLoop', false);
   // new duas added later go to the end of the user's order
   DEFAULT_ORDER.forEach(function (id) { if (st.order.indexOf(id) < 0) { st.order.push(id); st.plan[id] = defOn(id); } });
   st.order = st.order.filter(function (id) { return BY[id]; });
@@ -71,6 +71,12 @@
   }
 
   // ---------- appearance ----------
+  var ACCENTS = {
+    lapis: ['لاجوردی', '#1F45A3', '#14307A', '#0C6E73'], emerald: ['زمردی', '#127A55', '#0B4D3A', '#1F8A63'],
+    turquoise: ['فیروزه‌ای', '#0C7C86', '#0A4F55', '#1593A0'], ruby: ['یاقوتی', '#A3264A', '#6E1530', '#A8475E'],
+    violet: ['بنفش', '#5B3AA6', '#36206E', '#7254C2'], gold: ['طلایی', '#A8670A', '#6B4310', '#B0832E'],
+    rose: ['گلبهی', '#B0457A', '#7A2850', '#C0607F'], night: ['سرمه‌ای', '#34446B', '#141B2E', '#3A4A72']
+  };
   var AR_SIZES = [1.2, 1.35, 1.5, 1.65, 1.8, 2, 2.2, 2.45, 2.7, 3];
   var FA_SIZES = [0.85, 0.92, 1, 1.08, 1.18, 1.3, 1.42, 1.56, 1.7];
   function applyLook() {
@@ -80,6 +86,8 @@
     root.style.setProperty('--f-ar', st.far);
     root.style.setProperty('--f-fa', st.ffa);
     if (st.theme === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', st.theme);
+    var A = ACCENTS[st.accent] || ACCENTS.lapis;
+    root.style.setProperty('--accb', A[1]); root.style.setProperty('--h1', A[2]); root.style.setProperty('--h2', A[3]);
     document.body.classList.toggle('hide-fa', !st.tr);
     var oa = document.getElementById('o-ar'), of = document.getElementById('o-fa');
     if (oa) oa.textContent = fa(ai + 4); if (of) of.textContent = fa(fi + 3);
@@ -187,6 +195,14 @@
       mk.classList.toggle('done', v); mk.textContent = v ? '✓ امروز خوانده شد' : 'خواندم ✓';
       if (v) { if (navigator.vibrate) navigator.vibrate(30); toast(countDone() === planIds().length ? 'برنامهٔ امروز کامل شد 🌿' : 'ثبت شد؛ ' + fa(planIds().length - countDone()) + ' دعا مانده'); }
     };
+    // favourites: a star on every passage
+    app.querySelectorAll('.ch-b .pa').forEach(function (sec, i) {
+      var b = document.createElement('button'); b.className = 'star'; b.setAttribute('aria-label', 'افزودن به منتخب‌ها');
+      var on = favIdx(id, i) >= 0; b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '★' : '☆';
+      b.onclick = function () { var k = favIdx(id, i); if (k >= 0) { st.fav.splice(k, 1); toast('از منتخب‌ها برداشته شد'); } else { st.fav.push({ id: id, i: i }); toast('به منتخب‌ها اضافه شد ★'); }
+        save(); var o = favIdx(id, i) >= 0; b.setAttribute('aria-pressed', String(o)); b.textContent = o ? '★' : '☆'; };
+      sec.appendChild(b);
+    });
     // one audio at a time
     app.querySelectorAll('audio').forEach(function (a) { a.addEventListener('play', function () { app.querySelectorAll('audio').forEach(function (o) { if (o !== a) o.pause(); }); }); });
     var y = st.pos[id] || 0;
@@ -201,6 +217,85 @@
   }
   addEventListener('scroll', onScroll, { passive: true });
 
+  function favIdx(id, i) { for (var k = 0; k < st.fav.length; k++) if (st.fav[k].id === id && st.fav[k].i === i) return k; return -1; }
+  function parsed(id) { if (!parsed.c[id]) { var t = document.createElement('div'); t.innerHTML = BY[id].body; parsed.c[id] = t; } return parsed.c[id]; }
+  parsed.c = {};
+  function mmss(t) { t = Math.max(0, Math.round(t)); return fa(Math.floor(t / 60)) + ':' + fa(String(t % 60).padStart(2, '0')); }
+  var seg = new Audio(), segStop = null, segTimer = null, queue = null;
+  seg.preload = 'none';
+  function stopSeg() { clearInterval(segTimer); seg.pause(); segStop = null; queue = null; document.querySelectorAll('.fv.playing').forEach(function (x) { x.classList.remove('playing'); }); }
+  function playSeg(f, after) {
+    clearInterval(segTimer);
+    var src = audioOf(f.id); if (!src || f.t1 == null) { if (after) after(); return; }
+    if (seg.getAttribute('src') !== src) seg.src = src;
+    document.querySelectorAll('.fv.playing').forEach(function (x) { x.classList.remove('playing'); });
+    var el = document.querySelector('.fv[data-k="' + f.id + ':' + f.i + '"]'); if (el) el.classList.add('playing');
+    var go = function () { seg.currentTime = f.t0 || 0; seg.play().catch(function () {}); };
+    if (seg.readyState >= 1) go(); else seg.addEventListener('loadedmetadata', go, { once: true });
+    if (seg.readyState < 1) seg.load();
+    segTimer = setInterval(function () { if (seg.currentTime >= f.t1) { clearInterval(segTimer); seg.pause(); if (el) el.classList.remove('playing'); if (after) after(); } }, 120);
+  }
+  function playAll() {
+    var list = st.fav.filter(function (f) { return f.t1 != null && audioOf(f.id); });
+    if (!list.length) { toast('اول برای منتخب‌ها بخش صوت تعیین کنید'); return; }
+    var k = 0; queue = true;
+    var next = function () { if (!queue) return; if (k >= list.length) { if (st.favLoop) k = 0; else { stopSeg(); return; } } playSeg(list[k++], function () { setTimeout(next, 600); }); };
+    next();
+  }
+  function audioOf(id) { var a = parsed(id).querySelector('audio'); return a ? a.getAttribute('src') : null; }
+  function favs() {
+    stopSeg();
+    var h = '<div class="wrap"><h1 class="page-h">منتخب‌ها</h1>';
+    if (!st.fav.length) {
+      h += '<div class="box"><h2>هنوز بندی انتخاب نکرده‌اید</h2><p class="note2">در هر دعا، کنار هر بند یک ستاره ☆ هست. روی آن بزنید تا آن بند اینجا بیاید. بعد می‌توانید فقط صوت همان بند را گوش دهید.</p><a class="btn" href="#/">رفتن به فهرست دعاها</a></div></div>';
+      app.innerHTML = h; return;
+    }
+    h += '<div class="favbar"><button class="btn" id="pall">▶ پخش همه پشت سر هم</button><button class="btn ghost" id="pstop">■ توقف</button>' +
+      '<span class="lp">تکرار <button class="sw" id="ploop" role="switch" aria-checked="' + st.favLoop + '" aria-label="تکرار"></button></span></div>';
+    st.fav.forEach(function (f, k) {
+      var d = BY[f.id]; if (!d) return; var sec = parsed(f.id).querySelectorAll('.pa')[f.i]; if (!sec) return;
+      var c = sec.cloneNode(true); c.querySelectorAll('.star').forEach(function (x) { x.remove(); });
+      var hasA = !!audioOf(f.id), segTxt = f.t1 != null ? mmss(f.t0) + ' تا ' + mmss(f.t1) : '';
+      h += '<div class="fv c-' + d.color + '" data-k="' + f.id + ':' + f.i + '"><div class="fv-h"><a href="#/d/' + f.id + '">' + d.title + '</a><button class="ib fx" data-k="' + k + '" aria-label="حذف از منتخب‌ها">✕</button></div>' + c.outerHTML +
+        (hasA ? '<div class="fv-a">' + (f.t1 != null ? '<button class="btn fp" data-k="' + k + '">▶ پخش این بند <small>(' + segTxt + ')</small></button>' : '') +
+        '<button class="btn ghost fe" data-k="' + k + '">' + (f.t1 != null ? 'ویرایش بخش صوت' : '⏱ تعیین بخش صوت') + '</button></div><div class="seged" id="se' + k + '" hidden></div>' : '<p class="hint">این دعا صوت ندارد.</p>') + '</div>';
+    });
+    h += '<p class="hint">ترتیب پخش همان ترتیب این فهرست است. برای حذف، ✕ را بزنید.</p></div>';
+    app.innerHTML = h;
+    document.getElementById('pall').onclick = playAll;
+    document.getElementById('pstop').onclick = stopSeg;
+    document.getElementById('ploop').onclick = function () { st.favLoop = !st.favLoop; save(); this.setAttribute('aria-checked', String(st.favLoop)); };
+    app.querySelectorAll('.fx').forEach(function (b) { b.onclick = function () { st.fav.splice(+b.dataset.k, 1); save(); favs(); }; });
+    app.querySelectorAll('.fp').forEach(function (b) { b.onclick = function () { queue = null; playSeg(st.fav[+b.dataset.k]); }; });
+    app.querySelectorAll('.fe').forEach(function (b) { b.onclick = function () { editSeg(+b.dataset.k); }; });
+  }
+  function editSeg(k) {
+    stopSeg();
+    var f = st.fav[k], box = document.getElementById('se' + k), t0 = f.t0 != null ? f.t0 : null, t1 = f.t1 != null ? f.t1 : null;
+    app.querySelectorAll('.seged').forEach(function (x) { if (x !== box) { x.hidden = true; x.innerHTML = ''; } });
+    box.hidden = false;
+    box.innerHTML = '<p class="hint">صوت را پخش کنید. وقتی این بند شروع شد «شروع» و وقتی تمام شد «پایان» را بزنید.</p>' +
+      '<audio controls preload="metadata" src="' + audioOf(f.id) + '"></audio>' +
+      '<div class="segbtns"><button class="btn ghost" data-a="s">⏱ شروع از اینجا</button><button class="btn ghost" data-a="e">⏱ پایان اینجا</button></div>' +
+      '<div class="segbtns"><span>شروع: <b class="v0">—</b></span><button class="chipbtn" data-a="s-">−۱ث</button><button class="chipbtn" data-a="s+">+۱ث</button>' +
+      '<span>پایان: <b class="v1">—</b></span><button class="chipbtn" data-a="e-">−۱ث</button><button class="chipbtn" data-a="e+">+۱ث</button></div>' +
+      '<div class="segbtns"><button class="btn ghost" data-a="t">▶ امتحان</button><button class="btn" data-a="ok">ذخیره</button><button class="chipbtn" data-a="x">انصراف</button></div>';
+    var au = box.querySelector('audio');
+    if (t0 != null) au.addEventListener('loadedmetadata', function () { au.currentTime = t0; }, { once: true });
+    var show = function () { box.querySelector('.v0').textContent = t0 != null ? mmss(t0) : '—'; box.querySelector('.v1').textContent = t1 != null ? mmss(t1) : '—'; };
+    show();
+    var tt = null;
+    box.onclick = function (e) {
+      var b = e.target.closest('button'); if (!b || !b.dataset.a) return; var a = b.dataset.a;
+      if (a === 's') t0 = au.currentTime; else if (a === 'e') { t1 = au.currentTime; au.pause(); }
+      else if (a === 's-') t0 = Math.max(0, (t0 || 0) - 1); else if (a === 's+') t0 = (t0 || 0) + 1;
+      else if (a === 'e-') t1 = Math.max(0, (t1 || 0) - 1); else if (a === 'e+') t1 = (t1 || 0) + 1;
+      else if (a === 't') { if (t0 == null || t1 == null || t1 <= t0) { toast('اول شروع و پایان را تعیین کنید'); return; } clearInterval(tt); au.currentTime = t0; au.play(); tt = setInterval(function () { if (au.currentTime >= t1) { au.pause(); clearInterval(tt); } }, 120); }
+      else if (a === 'ok') { if (t0 == null || t1 == null || t1 <= t0) { toast('پایان باید بعد از شروع باشد'); return; } f.t0 = Math.round(t0 * 10) / 10; f.t1 = Math.round(t1 * 10) / 10; save(); toast('بخش صوت ذخیره شد'); favs(); return; }
+      else if (a === 'x') { au.pause(); favs(); return; }
+      show();
+    };
+  }
   var ZIKR = [
     ['أَسْتَغْفِرُ اللّٰهَ رَبِّي وَأَتُوبُ إِلَيْهِ', 'استغفار'],
     ['سُبْحَانَ اللّٰهِ', 'تسبیح'], ['الْحَمْدُ لِلّٰهِ', 'تحمید'], ['اللّٰهُ أَكْبَرُ', 'تکبیر'],
@@ -262,7 +357,10 @@
       '<p class="note2"><b>اعلان:</b> اگر برنامهٔ روز کامل نشده باشد، در این ساعت‌ها پیام می‌آید. در نسخهٔ نصبی وب، اندروید ممکن است اعلانِ برنامهٔ بسته را دیر بدهد یا ندهد؛ برای همین:</p>' +
       '<button class="btn wide" id="ics">⏰ افزودن آلارم مطمئن به تقویم گوشی</button>' +
       '<p class="note2">این دکمه یک رویداد تکرارشونده با هشدار، در همان ساعت‌ها، به تقویم گوشی می‌دهد. تقویم حتماً هر روز یادآوری می‌کند. نسخهٔ APK آلارم واقعی دارد.</p></div>');
-    h += '<div class="box"><h2>خواندن</h2><button class="btn ghost wide" id="look">اندازهٔ متن، خط و پوسته</button></div>';
+    h += '<div class="box"><h2>رنگ اپ</h2><div class="swatches" id="acc">' + Object.keys(ACCENTS).map(function (k) { var A = ACCENTS[k];
+      return '<button data-acc="' + k + '" aria-pressed="' + (st.accent === k) + '" style="--sw1:' + A[2] + ';--sw2:' + A[3] + '"><i></i><span>' + A[0] + '</span></button>'; }).join('') + '</div>' +
+      '<div class="row" style="margin-top:.6rem"><span>پوسته</span><div class="seg" id="th2">' + [['auto', 'خودکار'], ['light', 'روشن'], ['dark', 'شب'], ['sepia', 'کاغذی']].map(function (t) { return '<button data-v="' + t[0] + '" aria-pressed="' + (st.theme === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div></div></div>';
+    h += '<div class="box"><h2>خواندن</h2><button class="btn ghost wide" id="look">اندازهٔ متن و خط</button></div>';
     if (!LN) h += '<div class="box"><h2>نصب</h2>' + (deferredInstall ? '<button class="btn wide" id="inst">نصب روی گوشی</button>' : '') +
       '<p class="note2">در کروم اندروید: منوی ⋮ ← «افزودن به صفحهٔ اصلی» یا «نصب برنامه». پس از نصب، بدون اینترنت هم کار می‌کند. صوت‌ها بعد از یک بار پخش، ذخیره می‌شوند.</p></div>';
     h += '<div class="box"><h2>داده‌ها</h2><button class="btn ghost" id="reord">بازگرداندن ترتیب اولیه</button> <button class="btn ghost" id="wipe">پاک کردن سابقه</button>' +
@@ -276,6 +374,8 @@
     var rt = document.getElementById('rtest'); if (rt) rt.onclick = function () { notify('آزمایش یادآور', 'اعلان‌ها درست کار می‌کنند 🌿'); };
     var ib = document.getElementById('ics'); if (ib) ib.onclick = ics;
     document.getElementById('look').onclick = function () { sheet(true); };
+    document.getElementById('acc').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; st.accent = b.dataset.acc; save(); applyLook(); settings(); };
+    document.getElementById('th2').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; st.theme = b.dataset.v; save(); applyLook(); settings(); };
     var ins = document.getElementById('inst'); if (ins) ins.onclick = function () { deferredInstall.prompt(); deferredInstall = null; };
     document.getElementById('reord').onclick = function () { st.order = DEFAULT_ORDER.slice(); save(); toast('ترتیب اولیه برگشت'); };
     document.getElementById('wipe').onclick = function () { if (confirm('همهٔ سابقهٔ خواندن پاک شود؟')) { st.log = {}; save(); toast('پاک شد'); } };
@@ -388,8 +488,10 @@
     var reading = !!(m = hsh.match(/^#\/d\/(\w+)/));
     document.body.classList.toggle('reading', reading);
     if (!reading) readId = null;
+    if (cur === 'fav' && hsh !== '#/fav') stopSeg();
     if (reading) { cur = 'read'; reader(m[1]); }
     else if (hsh === '#/tasbih') { cur = 'tasbih'; tasbih(); }
+    else if (hsh === '#/fav') { cur = 'fav'; favs(); }
     else if (hsh === '#/history') { cur = 'history'; history(); }
     else if (hsh === '#/settings') { cur = 'settings'; settings(); }
     else { cur = 'home'; home(); }
