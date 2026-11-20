@@ -1,0 +1,9 @@
+{
+  "appId": "ir.ketabdoa.app",
+  "appName": "کتاب دعای روزانه",
+  "webDir": "www",
+  "android": { "backgroundColor": "#14307A" },
+  "plugins": {
+    "LocalNotifications": { "smallIcon": "ic_stat_doa", "iconColor": "#B48A2C" }
+  }
+}

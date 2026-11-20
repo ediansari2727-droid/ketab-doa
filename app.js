@@ -37,7 +37,7 @@
   // new duas added later go to the end of the user's order
   DEFAULT_ORDER.forEach(function (id) { if (st.order.indexOf(id) < 0) { st.order.push(id); st.plan[id] = defOn(id); } });
   st.order = st.order.filter(function (id) { return BY[id]; });
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} mirrorToSW(); }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} mirrorToSW(); if (typeof nativeSchedule === 'function') { clearTimeout(save._n); save._n = setTimeout(nativeSchedule, 800); } }
 
   // ---------- helpers ----------
   function fa(n) { return String(n).replace(/\d/g, function (c) { return '۰۱۲۳۴۵۶۷۸۹'[c]; }); }
@@ -248,7 +248,7 @@
 
   var deferredInstall = null;
   addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredInstall = e; if (cur === 'settings') settings(); });
-  function perm() { return 'Notification' in window ? Notification.permission : 'unsupported'; }
+  function perm() { if (LN) return nativePerm === 'granted' ? 'granted' : nativePerm === 'denied' ? 'denied' : 'default'; return 'Notification' in window ? Notification.permission : 'unsupported'; }
   function settings() {
     var p = perm();
     var h = '<div class="wrap"><h1 class="page-h">تنظیمات</h1>';
@@ -258,11 +258,12 @@
     }).join('') +
       '<button class="btn ghost" id="radd">+ افزودن ساعت</button> ' +
       (p === 'granted' ? '<button class="btn ghost" id="rtest">آزمایش اعلان</button>' : p === 'unsupported' ? '' : '<button class="btn" id="rperm">اجازهٔ اعلان</button>') +
+      (LN ? '<p class="note2"><b>آلارم:</b> در این ساعت‌ها، حتی وقتی اپ بسته است، پیام می‌آید. اگر برنامهٔ امروز کامل شده باشد، پیام امروز نمی‌آید.</p></div>' :
       '<p class="note2"><b>اعلان:</b> اگر برنامهٔ روز کامل نشده باشد، در این ساعت‌ها پیام می‌آید. در نسخهٔ نصبی وب، اندروید ممکن است اعلانِ برنامهٔ بسته را دیر بدهد یا ندهد؛ برای همین:</p>' +
       '<button class="btn wide" id="ics">⏰ افزودن آلارم مطمئن به تقویم گوشی</button>' +
-      '<p class="note2">این دکمه یک رویداد تکرارشونده با هشدار، در همان ساعت‌ها، به تقویم گوشی می‌دهد. تقویم حتماً هر روز یادآوری می‌کند. در نسخهٔ APK آلارم واقعی داخل خود اپ خواهد بود.</p></div>';
+      '<p class="note2">این دکمه یک رویداد تکرارشونده با هشدار، در همان ساعت‌ها، به تقویم گوشی می‌دهد. تقویم حتماً هر روز یادآوری می‌کند. نسخهٔ APK آلارم واقعی دارد.</p></div>');
     h += '<div class="box"><h2>خواندن</h2><button class="btn ghost wide" id="look">اندازهٔ متن، خط و پوسته</button></div>';
-    h += '<div class="box"><h2>نصب</h2>' + (deferredInstall ? '<button class="btn wide" id="inst">نصب روی گوشی</button>' : '') +
+    if (!LN) h += '<div class="box"><h2>نصب</h2>' + (deferredInstall ? '<button class="btn wide" id="inst">نصب روی گوشی</button>' : '') +
       '<p class="note2">در کروم اندروید: منوی ⋮ ← «افزودن به صفحهٔ اصلی» یا «نصب برنامه». پس از نصب، بدون اینترنت هم کار می‌کند. صوت‌ها بعد از یک بار پخش، ذخیره می‌شوند.</p></div>';
     h += '<div class="box"><h2>داده‌ها</h2><button class="btn ghost" id="reord">بازگرداندن ترتیب اولیه</button> <button class="btn ghost" id="wipe">پاک کردن سابقه</button>' +
       '<p class="note2">همهٔ تیک‌ها و تنظیمات فقط روی همین گوشی ذخیره می‌شوند.</p></div></div>';
@@ -271,9 +272,9 @@
     app.querySelectorAll('.rs').forEach(function (b) { b.onclick = function () { var r = st.rem[+b.dataset.i]; r.on = !r.on; save(); schedule(); settings(); }; });
     app.querySelectorAll('.rd').forEach(function (b) { b.onclick = function () { st.rem.splice(+b.dataset.i, 1); save(); schedule(); settings(); }; });
     document.getElementById('radd').onclick = function () { st.rem.push({ t: '12:00', on: true }); save(); schedule(); settings(); };
-    var rp = document.getElementById('rperm'); if (rp) rp.onclick = function () { Notification.requestPermission().then(function () { registerPeriodic(); schedule(); settings(); }); };
+    var rp = document.getElementById('rperm'); if (rp) rp.onclick = function () { if (LN) { LN.requestPermissions().then(function (r) { nativePerm = r.display; nativeSchedule(); settings(); }); return; } Notification.requestPermission().then(function () { registerPeriodic(); schedule(); settings(); }); };
     var rt = document.getElementById('rtest'); if (rt) rt.onclick = function () { notify('آزمایش یادآور', 'اعلان‌ها درست کار می‌کنند 🌿'); };
-    document.getElementById('ics').onclick = ics;
+    var ib = document.getElementById('ics'); if (ib) ib.onclick = ics;
     document.getElementById('look').onclick = function () { sheet(true); };
     var ins = document.getElementById('inst'); if (ins) ins.onclick = function () { deferredInstall.prompt(); deferredInstall = null; };
     document.getElementById('reord').onclick = function () { st.order = DEFAULT_ORDER.slice(); save(); toast('ترتیب اولیه برگشت'); };
@@ -281,6 +282,27 @@
   }
 
   // ---------- reminders ----------
+  var NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  var LN = NATIVE && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+  var nativePerm = 'prompt';
+  if (LN) LN.checkPermissions().then(function (r) { nativePerm = r.display; if (cur === 'settings') settings(); nativeSchedule(); }).catch(function () {});
+  // APK: real alarms for the next 30 days; today's are skipped once the plan is complete
+  function nativeSchedule() {
+    if (!LN || nativePerm !== 'granted') return;
+    LN.getPending().then(function (r) {
+      var old = (r.notifications || []).map(function (n) { return { id: n.id }; });
+      return old.length ? LN.cancel({ notifications: old }) : null;
+    }).then(function () {
+      var now = Date.now(), list = [], doneToday = countDone() >= planIds().length;
+      for (var d = 0; d < 30; d++) remTimes().forEach(function (t, i) {
+        var p = t.split(':'), x = new Date(); x.setDate(x.getDate() + d); x.setHours(+p[0], +p[1], 0, 0);
+        if (x.getTime() <= now || (d === 0 && doneToday)) return;
+        list.push({ id: 1000 + d * 10 + i, title: 'وقت دعای روزانه', body: d === 0 ? remindBody() : 'برنامهٔ دعای امروز را باز کنید',
+          schedule: { at: x, allowWhileIdle: true }, smallIcon: 'ic_stat_doa', iconColor: '#B48A2C' });
+      });
+      if (list.length) return LN.schedule({ notifications: list });
+    }).catch(function () {});
+  }
   function remTimes() { return st.rem.filter(function (r) { return r.on && /^\d\d:\d\d$/.test(r.t); }).map(function (r) { return r.t; }); }
   function resetNotified() { delete st.notified[today()]; }
   function missedNow() {
@@ -291,6 +313,7 @@
   }
   function notify(title, body) {
     if (perm() !== 'granted') return;
+    if (LN) { LN.schedule({ notifications: [{ id: 999, title: title, body: body, smallIcon: 'ic_stat_doa' }] }).catch(function () {}); return; }
     var opt = { body: body, icon: 'icons/icon-192.png', badge: 'icons/badge.png', tag: 'doa-daily', renotify: true, dir: 'rtl', lang: 'fa', vibrate: [200, 100, 200], data: { url: './#/' } };
     if (navigator.serviceWorker && navigator.serviceWorker.ready) navigator.serviceWorker.ready.then(function (r) { r.showNotification(title, opt); }).catch(function () { try { new Notification(title, opt); } catch (e) {} });
     else try { new Notification(title, opt); } catch (e) {}
