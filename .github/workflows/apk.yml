@@ -43,8 +43,15 @@ jobs:
         run: cp android-app/android/app/build/outputs/apk/debug/app-debug.apk ketab-doa.apk
       - uses: actions/upload-artifact@v4
         with: { name: ketab-doa-apk, path: ketab-doa.apk }
+      - name: Computer zip
+        run: |
+          mkdir -p pc/ketab-doa
+          sed 's#https://ediansari2727-droid.github.io/ketab-doa/audio/#audio/#g' download/ketab-doa-computer.html > "pc/ketab-doa/کتاب دعا (باز کنید).html"
+          cp -r audio pc/ketab-doa/audio
+          printf 'فایل «کتاب دعا (باز کنید).html» را با Chrome یا Edge باز کنید.\nپوشهٔ audio باید کنار همین فایل بماند تا صوت‌ها بدون اینترنت پخش شوند.\n' > "pc/ketab-doa/راهنما.txt"
+          cd pc && zip -0 -qr ../ketab-doa-computer.zip ketab-doa
       - name: Publish release
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           gh release delete latest -y --cleanup-tag || true
-          gh release create latest ketab-doa.apk --title "کتاب دعای روزانه (APK)" --notes "نسخهٔ اندروید؛ ساخته‌شده از آخرین تغییرات."
+          gh release create latest ketab-doa.apk ketab-doa-computer.zip --title "کتاب دعای روزانه (APK)" --notes "نسخهٔ اندروید؛ ساخته‌شده از آخرین تغییرات."
