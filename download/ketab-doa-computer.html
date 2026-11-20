@@ -254,6 +254,38 @@ button{cursor:pointer}
 .seged audio{width:100%}
 .segbtns span{font-size:.85rem}
 .pa:not(:has(.n)){padding-top:2.9rem}
+/* global mini player */
+.mini{position:fixed;inset-inline:8px;bottom:calc(3.9rem + env(safe-area-inset-bottom,0px));z-index:9;display:flex;align-items:center;gap:.3rem;padding:.4rem .5rem .55rem;background:var(--paper);border:1px solid var(--rule);border-radius:16px;box-shadow:0 6px 22px rgba(0,0,0,.18);max-width:44rem;margin:0 auto;overflow:hidden}
+.mini[hidden]{display:none}
+.reading .mini{bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+body.has-mini{padding-bottom:calc(8.4rem + env(safe-area-inset-bottom,0px))}
+.mini button{border:0;background:none;color:var(--ink);font:inherit;padding:0}
+.mini .mp{width:2.5rem;height:2.5rem;flex:none;border-radius:50%;background:var(--acc);color:#fff;font-size:1rem}
+.mini .m-t{flex:1;min-width:0;display:grid;text-align:start;line-height:1.35}
+.mini .m-t b{font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini .m-t small{font-size:.72rem;color:var(--muted)}
+.mini .mb{flex:none;min-width:2rem;height:2rem;border-radius:10px;font-size:.82rem;color:var(--muted)}
+.mini .mb[aria-pressed="true"]{background:var(--acc);color:#fff}
+.m-bar{position:absolute;inset-inline:0;bottom:0;height:3px;background:var(--rule)}
+.m-bar i{display:block;height:100%;width:0;background:var(--acc);margin-inline-start:0}
+@media (max-width:380px){.mini #m-b{display:none}}
+/* in-page player */
+.cp{display:flex;align-items:center;gap:.6rem;width:100%;margin-top:.3rem}
+.cp-pp{width:2.4rem;height:2.4rem;flex:none;border:0;border-radius:50%;background:var(--acc);color:#fff;font-size:.95rem}
+.cp-bar{flex:1;min-width:0;accent-color:var(--acc);direction:ltr;transform:scaleX(-1)}
+.cp-t{flex:none;font-size:.78rem;color:var(--muted);min-width:5.6rem;text-align:center}
+.cp.on .cp-pp{box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 25%,transparent)}
+/* search */
+.searchbar{display:block;margin:0 0 1rem;padding:.75rem 1rem;border-radius:14px;background:var(--paper);border:1px solid var(--rule);color:var(--muted);text-decoration:none}
+.sbox{width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:14px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);font:inherit;font-size:1rem}
+.sr{display:block;margin:.6rem 0;padding:.7rem .9rem;border-radius:12px;background:var(--paper);border:1px solid var(--rule);color:var(--ink);text-decoration:none}
+.sr b{color:var(--acc);font-size:.85rem}
+.sr .ar-s{display:block;font-family:var(--far,"Amiri",serif);font-size:1.15rem;line-height:1.9;margin-top:.2rem}
+.sr mark{background:color-mix(in srgb,var(--gold) 40%,transparent);color:inherit;border-radius:3px}
+.flash{animation:flash 2s ease}
+@keyframes flash{0%,40%{box-shadow:0 0 0 4px var(--gold)}100%{box-shadow:0 0 0 0 transparent}}
+.star.share{left:2.9rem;color:var(--acc);font-size:1rem}
+.bk-t{display:block;width:100%;box-sizing:border-box;min-height:4.5rem;margin:.6rem 0;padding:.6rem;border-radius:12px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);font:inherit;font-size:.8rem;direction:ltr}
 </style>
 </head>
 <body>
@@ -408,6 +440,89 @@ button{cursor:pointer}
   }
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') { wake(); checkMissed(); if (cur === 'home') render(); } });
 
+  // ---------- one audio player for the whole app (keeps playing across pages) ----------
+  var G = new Audio(); G.preload = 'metadata';
+  var gInfo = null, sleepT = null, sleepAt = 0, SPEEDS = [1, 1.25, 1.5, 0.75];
+  def('speed', 1);
+  function gPlay(src, info, t0) {
+    if (G._src !== src) { G._src = src; G.src = src; }
+    gInfo = info; G.playbackRate = st.speed || 1;
+    if (t0 != null) { var go = function () { G.currentTime = t0; }; if (G.readyState >= 1) go(); else G.addEventListener('loadedmetadata', go, { once: true }); }
+    G.play().catch(function () {});
+    if ('mediaSession' in navigator && window.MediaMetadata) try { navigator.mediaSession.metadata = new MediaMetadata({ title: info.label, artist: info.title, album: 'کتاب دعای روزانه', artwork: [{ src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }] }); } catch (e) {}
+    mini();
+  }
+  function gStop() { clearInterval(segTimer); queue = null; G.pause(); gInfo = null; G.loop = false; clearTimeout(sleepT); sleepAt = 0; mini(); syncPlayers();
+    document.querySelectorAll('.fv.playing').forEach(function (x) { x.classList.remove('playing'); }); }
+  if ('mediaSession' in navigator) try {
+    navigator.mediaSession.setActionHandler('play', function () { G.play(); });
+    navigator.mediaSession.setActionHandler('pause', function () { G.pause(); });
+    navigator.mediaSession.setActionHandler('stop', gStop);
+    navigator.mediaSession.setActionHandler('seekbackward', function () { G.currentTime = Math.max(0, G.currentTime - 10); });
+    navigator.mediaSession.setActionHandler('seekforward', function () { G.currentTime = G.currentTime + 10; });
+  } catch (e) {}
+  function mmss(t) { t = Math.max(0, Math.round(t || 0)); return fa(Math.floor(t / 60)) + ':' + fa(String(t % 60).padStart(2, '0')); }
+  var miniEl = document.createElement('div'); miniEl.className = 'mini'; miniEl.hidden = true; document.body.appendChild(miniEl);
+  miniEl.innerHTML = '<button class="mp" id="m-pp" aria-label="پخش/مکث">▶</button><button class="m-t" id="m-go"><b id="m-l"></b><small id="m-s"></small></button>' +
+    '<button class="mb" id="m-b" aria-label="۱۰ ثانیه عقب">↻۱۰</button><button class="mb" id="m-sp" aria-label="سرعت">۱×</button><button class="mb" id="m-sl" aria-label="تایمر خاموشی">☾</button>' +
+    '<button class="mb" id="m-lp" aria-label="تکرار" aria-pressed="false">⟲</button><button class="mb" id="m-x" aria-label="توقف و بستن">✕</button><div class="m-bar"><i id="m-f"></i></div>';
+  function mini() {
+    var show = !!gInfo; miniEl.hidden = !show; document.body.classList.toggle('has-mini', show);
+    if (!show) return;
+    document.getElementById('m-pp').textContent = G.paused ? '▶' : '❚❚';
+    document.getElementById('m-l').textContent = gInfo.label;
+    document.getElementById('m-s').textContent = mmss(G.currentTime) + ' / ' + mmss(G.duration) + (sleepAt ? ' · خاموشی ' + mmss((sleepAt - Date.now()) / 1000) : '');
+    document.getElementById('m-sp').textContent = fa(st.speed || 1) + '×';
+    document.getElementById('m-lp').setAttribute('aria-pressed', String(G.loop));
+    document.getElementById('m-f').style.width = (G.duration ? G.currentTime / G.duration * 100 : 0) + '%';
+  }
+  miniEl.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.id === 'm-pp') { if (G.paused) G.play(); else G.pause(); }
+    else if (b.id === 'm-x') gStop();
+    else if (b.id === 'm-b') G.currentTime = Math.max(0, G.currentTime - 10);
+    else if (b.id === 'm-sp') { var i = (SPEEDS.indexOf(st.speed || 1) + 1) % SPEEDS.length; st.speed = SPEEDS[i]; G.playbackRate = st.speed; save(); toast('سرعت پخش: ' + fa(st.speed) + '×'); }
+    else if (b.id === 'm-lp') { G.loop = !G.loop; toast(G.loop ? 'تکرار روشن شد' : 'تکرار خاموش شد'); }
+    else if (b.id === 'm-sl') {
+      var opts = [0, 15, 30, 60], curM = sleepAt ? Math.round((sleepAt - Date.now()) / 60000) : 0, nx = 15;
+      for (var k = 0; k < opts.length; k++) if (opts[k] > curM) { nx = opts[k]; break; } if (curM >= 60) nx = 0;
+      clearTimeout(sleepT); sleepAt = 0;
+      if (nx) { sleepAt = Date.now() + nx * 60000; sleepT = setTimeout(function () { G.pause(); sleepAt = 0; mini(); toast('صوت با تایمر خاموش شد'); }, nx * 60000); toast('خاموشی پس از ' + fa(nx) + ' دقیقه'); }
+      else toast('تایمر خاموشی برداشته شد');
+    }
+    else if (b.id === 'm-go' && gInfo && gInfo.id) location.hash = gInfo.fav ? '#/fav' : '#/d/' + gInfo.id;
+    mini(); syncPlayers();
+  });
+  ['play', 'pause', 'timeupdate', 'loadedmetadata', 'ended'].forEach(function (ev) { G.addEventListener(ev, function () { mini(); syncPlayers(); }); });
+  // in-page players are drawn by us and drive the shared audio
+  function syncPlayers() {
+    document.querySelectorAll('.cp').forEach(function (cp) {
+      var mine = G._src === cp.dataset.src && gInfo;
+      cp.querySelector('.cp-pp').textContent = mine && !G.paused ? '❚❚' : '▶';
+      cp.classList.toggle('on', !!mine);
+      if (mine && G.duration) { var r = cp.querySelector('.cp-bar'); if (!r._drag) r.value = Math.round(G.currentTime / G.duration * 1000); cp.querySelector('.cp-t').textContent = mmss(G.currentTime) + ' / ' + mmss(G.duration); }
+      else if (!mine) { cp.querySelector('.cp-bar').value = 0; }
+    });
+  }
+  function buildPlayers(id) {
+    app.querySelectorAll('.player').forEach(function (pl) {
+      var a = pl.querySelector('audio'); if (!a) return;
+      var src = a.getAttribute('src'), label = (pl.querySelector('span') || {}).textContent || BY[id].title;
+      label = label.replace('🔊', '').trim();
+      var cp = document.createElement('div'); cp.className = 'cp'; cp.dataset.src = src;
+      cp.innerHTML = '<button class="cp-pp" aria-label="پخش/مکث">▶</button><input class="cp-bar" type="range" min="0" max="1000" value="0" aria-label="جای پخش"><span class="cp-t">۰:۰۰</span>';
+      a.replaceWith(cp);
+      cp.querySelector('.cp-pp').onclick = function () {
+        if (G._src === src && gInfo) { if (G.paused) G.play(); else G.pause(); }
+        else { clearInterval(segTimer); queue = null; gPlay(src, { id: id, title: BY[id].title.replace(/<[^>]+>/g, ''), label: label }); }
+      };
+      var r = cp.querySelector('.cp-bar');
+      r.addEventListener('input', function () { r._drag = true; });
+      r.addEventListener('change', function () { r._drag = false; if (G._src !== src || !gInfo) gPlay(src, { id: id, title: BY[id].title.replace(/<[^>]+>/g, ''), label: label }); var go = function () { if (G.duration) G.currentTime = r.value / 1000 * G.duration; }; if (G.readyState >= 1) go(); else G.addEventListener('loadedmetadata', go, { once: true }); });
+    });
+    syncPlayers();
+  }
+
   // ---------- views ----------
   var cur = '', sortable = null, editing = false, readId = null;
   function card(id, i) {
@@ -436,6 +551,7 @@ button{cursor:pointer}
       (next ? '<a class="btn" style="margin-top:.4rem;padding:.4rem 1rem;font-size:.88rem" href="#/d/' + next + '">ادامه: ' + BY[next].title + ' ←</a>' : '') + '</div></div>';
     if (tot && n === tot) h += '<div class="allgood">الحمدلله؛ همهٔ دعاهای امروز خوانده شد ✓</div>';
     else if (miss) h += '<div class="banner">⏰ <span><b>یادآور ' + fa(miss) + ':</b> هنوز ' + fa(tot - n) + ' دعا از برنامهٔ امروز مانده است.</span></div>';
+    h += '<a class="searchbar" href="#/search">⌕ جستجو در همهٔ دعاها و ترجمه‌ها</a>';
     h += '<div class="sec-h"><h2>فهرست دعاها</h2><button class="chipbtn" id="edit" aria-pressed="' + editing + '">' + (editing ? 'تمام ✓' : '↕ ترتیب و برنامه') + '</button></div>';
     h += '<ul class="cards' + (editing ? ' editing' : '') + '" id="cards">' + st.order.map(card).join('') + '</ul>';
     h += editing ? '<p class="hint">کارت‌ها را با دستگیرهٔ ⋮⋮ بکشید تا ترتیب عوض شود. با کلید کنار هر دعا، آن را در برنامهٔ روزانه بگذارید یا بردارید.</p>' : '';
@@ -483,16 +599,22 @@ button{cursor:pointer}
     };
     // favourites: a star on every passage
     app.querySelectorAll('.ch-b .pa').forEach(function (sec, i) {
+      sec.id = 'p' + i;
+      var sh = document.createElement('button'); sh.className = 'star share'; sh.setAttribute('aria-label', 'کپی یا ارسال این بند'); sh.textContent = '⇪';
+      sh.onclick = function () { sharePa(id, sec); }; sec.appendChild(sh);
       var b = document.createElement('button'); b.className = 'star'; b.setAttribute('aria-label', 'افزودن به منتخب‌ها');
       var on = favIdx(id, i) >= 0; b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '★' : '☆';
       b.onclick = function () { var k = favIdx(id, i); if (k >= 0) { st.fav.splice(k, 1); toast('از منتخب‌ها برداشته شد'); } else { st.fav.push({ id: id, i: i }); toast('به منتخب‌ها اضافه شد ★'); }
         save(); var o = favIdx(id, i) >= 0; b.setAttribute('aria-pressed', String(o)); b.textContent = o ? '★' : '☆'; };
       sec.appendChild(b);
     });
-    // one audio at a time
-    app.querySelectorAll('audio').forEach(function (a) { a.addEventListener('play', function () { app.querySelectorAll('audio').forEach(function (o) { if (o !== a) o.pause(); }); }); });
-    var y = st.pos[id] || 0;
-    requestAnimationFrame(function () { window.scrollTo(0, y); if (y > 300) toast('از جایی که مانده بودید ادامه دهید'); onScroll(); });
+    buildPlayers(id);
+    var y = st.pos[id] || 0, jt = jumpTo; jumpTo = null;
+    requestAnimationFrame(function () {
+      if (jt != null && document.getElementById('p' + jt)) { var el = document.getElementById('p' + jt); el.scrollIntoView({ block: 'center' }); el.classList.add('flash'); setTimeout(function () { el.classList.remove('flash'); }, 2200); }
+      else { window.scrollTo(0, y); if (y > 300) toast('از جایی که مانده بودید ادامه دهید'); }
+      onScroll();
+    });
   }
   var posT;
   function onScroll() {
@@ -503,22 +625,59 @@ button{cursor:pointer}
   }
   addEventListener('scroll', onScroll, { passive: true });
 
+  function plain(h) { var t = document.createElement('div'); t.innerHTML = h; t.querySelectorAll('.star,.n').forEach(function (x) { x.remove(); }); return t.textContent.replace(/\s+/g, ' ').trim(); }
+  function sharePa(id, sec) {
+    var ar = sec.querySelector('.ar,.q'), fa_ = sec.querySelector('.fa');
+    var txt = (ar ? plain(ar.innerHTML) : '') + (fa_ ? '\n\n' + plain(fa_.innerHTML) : '') + '\n\n— ' + plain(BY[id].title) + ' (' + plain(BY[id].eyebrow) + ')';
+    if (navigator.share) { navigator.share({ text: txt }).catch(function () {}); return; }
+    copyText(txt, 'متن این بند کپی شد');
+  }
+  function copyText(txt, msg) {
+    var done = function () { toast(msg); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, fallback); else fallback();
+    function fallback() { var t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); done(); } catch (e) { toast('کپی نشد'); } t.remove(); }
+  }
+  // search: Arabic matching ignores harakat and letter variants
+  function normAr(t) { return t.replace(/[\u064B-\u065F\u0670\u0640]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/[ىي]/g, 'ی').replace(/ك/g, 'ک').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ی').replace(/\u200c/g, ' '); }
+  var IDX = null, sq = '';
+  function buildIdx() {
+    IDX = [];
+    DUAS.forEach(function (d) { parsed(d.id).querySelectorAll('.pa').forEach(function (sec, i) {
+      var ar = sec.querySelector('.ar,.q'), f = sec.querySelector('.fa');
+      var a = ar ? plain(ar.innerHTML) : '', p = f ? plain(f.innerHTML) : '';
+      IDX.push({ id: d.id, i: i, ar: a, fa: p, n: normAr(a + ' ' + p) });
+    }); });
+  }
+  function search() {
+    if (!IDX) buildIdx();
+    var h = '<div class="wrap"><h1 class="page-h">جستجو</h1><input class="sbox" id="sq" type="search" placeholder="یک کلمه به فارسی یا عربی… مثلاً عافیت، رزق، حسد" value="' + esc(sq) + '" autocomplete="off"><div id="sres"></div></div>';
+    app.innerHTML = h;
+    var inp = document.getElementById('sq'), out = document.getElementById('sres');
+    var run = function () {
+      sq = inp.value.trim(); var q = normAr(sq);
+      if (q.length < 2) { out.innerHTML = '<p class="hint">دست‌کم دو حرف بنویسید. اعراب لازم نیست.</p>'; return; }
+      var res = IDX.filter(function (x) { return x.n.indexOf(q) >= 0; }).slice(0, 80);
+      out.innerHTML = '<p class="hint">' + fa(res.length) + (res.length === 80 ? '+' : '') + ' نتیجه</p>' + res.map(function (x) {
+        var d = BY[x.id], txt = normAr(x.fa).indexOf(q) >= 0 ? x.fa : x.ar, cls = txt === x.ar ? 'ar-s' : '';
+        if (txt.length > 220) { var k = Math.max(0, normAr(txt).indexOf(q) - 80); txt = (k ? '… ' : '') + txt.slice(k, k + 200) + ' …'; }
+        return '<a class="sr c-' + d.color + '" href="#/d/' + x.id + '" data-i="' + x.i + '"><b>' + d.title + ' · بند ' + fa(x.i + 1) + '</b><span class="' + cls + '">' + esc(txt) + '</span></a>';
+      }).join('');
+    };
+    inp.addEventListener('input', run); run();
+    out.addEventListener('click', function (e) { var a = e.target.closest('.sr'); if (a) jumpTo = +a.dataset.i; });
+    if (!sq) setTimeout(function () { inp.focus(); }, 50);
+  }
   function favIdx(id, i) { for (var k = 0; k < st.fav.length; k++) if (st.fav[k].id === id && st.fav[k].i === i) return k; return -1; }
   function parsed(id) { if (!parsed.c[id]) { var t = document.createElement('div'); t.innerHTML = BY[id].body; parsed.c[id] = t; } return parsed.c[id]; }
   parsed.c = {};
-  function mmss(t) { t = Math.max(0, Math.round(t)); return fa(Math.floor(t / 60)) + ':' + fa(String(t % 60).padStart(2, '0')); }
-  var seg = new Audio(), segStop = null, segTimer = null, queue = null;
-  seg.preload = 'none';
-  function stopSeg() { clearInterval(segTimer); seg.pause(); segStop = null; queue = null; document.querySelectorAll('.fv.playing').forEach(function (x) { x.classList.remove('playing'); }); }
+  var seg = G, segTimer = null, queue = null, jumpTo = null;
+  function stopSeg() { gStop(); }
   function playSeg(f, after) {
     clearInterval(segTimer);
     var src = audioOf(f.id); if (!src || f.t1 == null) { if (after) after(); return; }
-    if (seg.getAttribute('src') !== src) seg.src = src;
+    gPlay(src, { id: f.id, fav: true, title: 'منتخب‌ها', label: BY[f.id].title.replace(/<[^>]+>/g, '') + ' · بند ' + fa(f.i + 1) }, f.t0 || 0);
     document.querySelectorAll('.fv.playing').forEach(function (x) { x.classList.remove('playing'); });
     var el = document.querySelector('.fv[data-k="' + f.id + ':' + f.i + '"]'); if (el) el.classList.add('playing');
-    var go = function () { seg.currentTime = f.t0 || 0; seg.play().catch(function () {}); };
-    if (seg.readyState >= 1) go(); else seg.addEventListener('loadedmetadata', go, { once: true });
-    if (seg.readyState < 1) seg.load();
     segTimer = setInterval(function () { if (seg.currentTime >= f.t1) { clearInterval(segTimer); seg.pause(); if (el) el.classList.remove('playing'); if (after) after(); } }, 120);
   }
   function playAll() {
@@ -530,7 +689,6 @@ button{cursor:pointer}
   }
   function audioOf(id) { var a = parsed(id).querySelector('audio'); return a ? a.getAttribute('src') : null; }
   function favs() {
-    stopSeg();
     var h = '<div class="wrap"><h1 class="page-h">منتخب‌ها</h1>';
     if (!st.fav.length) {
       h += '<div class="box"><h2>هنوز بندی انتخاب نکرده‌اید</h2><p class="note2">در هر دعا، کنار هر بند یک ستاره ☆ هست. روی آن بزنید تا آن بند اینجا بیاید. بعد می‌توانید فقط صوت همان بند را گوش دهید.</p><a class="btn" href="#/">رفتن به فهرست دعاها</a></div></div>';
@@ -650,7 +808,9 @@ button{cursor:pointer}
     if (!LN) h += '<div class="box"><h2>نصب</h2>' + (deferredInstall ? '<button class="btn wide" id="inst">نصب روی گوشی</button>' : '') +
       '<p class="note2">در کروم اندروید: منوی ⋮ ← «افزودن به صفحهٔ اصلی» یا «نصب برنامه». پس از نصب، بدون اینترنت هم کار می‌کند. صوت‌ها بعد از یک بار پخش، ذخیره می‌شوند.</p></div>';
     h += '<div class="box"><h2>داده‌ها</h2><button class="btn ghost" id="reord">بازگرداندن ترتیب اولیه</button> <button class="btn ghost" id="wipe">پاک کردن سابقه</button>' +
-      '<p class="note2">همهٔ تیک‌ها و تنظیمات فقط روی همین گوشی ذخیره می‌شوند.</p></div></div>';
+      '<p class="note2">همهٔ تیک‌ها و تنظیمات فقط روی همین دستگاه ذخیره می‌شوند.</p>' +
+      '<h2 style="margin-top:1rem">پشتیبان</h2><p class="note2">برای انتقال به گوشی یا کامپیوتر دیگر: «کپی پشتیبان» را بزنید و متن را جایی نگه دارید (مثلاً برای خودتان بفرستید). در دستگاه دیگر آن را در کادر زیر بچسبانید و «بازیابی» را بزنید.</p>' +
+      '<button class="btn ghost" id="bk">کپی پشتیبان</button><textarea id="rs-t" class="bk-t" placeholder="متن پشتیبان را اینجا بچسبانید"></textarea><button class="btn ghost" id="rs-b">بازیابی</button></div></div>';
     app.innerHTML = h;
     app.querySelectorAll('.rt').forEach(function (inp) { inp.onchange = function () { st.rem[+inp.dataset.i].t = inp.value; resetNotified(); save(); schedule(); toast('ذخیره شد'); }; });
     app.querySelectorAll('.rs').forEach(function (b) { b.onclick = function () { var r = st.rem[+b.dataset.i]; r.on = !r.on; save(); schedule(); settings(); }; });
@@ -663,6 +823,11 @@ button{cursor:pointer}
     document.getElementById('acc').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; st.accent = b.dataset.acc; save(); applyLook(); settings(); };
     document.getElementById('th2').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; st.theme = b.dataset.v; save(); applyLook(); settings(); };
     var ins = document.getElementById('inst'); if (ins) ins.onclick = function () { deferredInstall.prompt(); deferredInstall = null; };
+    document.getElementById('bk').onclick = function () { copyText('DOA1:' + btoa(unescape(encodeURIComponent(JSON.stringify(st)))), 'پشتیبان کپی شد'); };
+    document.getElementById('rs-b').onclick = function () {
+      var v = document.getElementById('rs-t').value.trim().replace(/^DOA1:/, '');
+      try { var o = JSON.parse(decodeURIComponent(escape(atob(v)))); if (!o || !o.order) throw 0; st = o; save(); applyLook(); toast('بازیابی شد'); settings(); } catch (e) { toast('متن پشتیبان درست نیست'); }
+    };
     document.getElementById('reord').onclick = function () { st.order = DEFAULT_ORDER.slice(); save(); toast('ترتیب اولیه برگشت'); };
     document.getElementById('wipe').onclick = function () { if (confirm('همهٔ سابقهٔ خواندن پاک شود؟')) { st.log = {}; save(); toast('پاک شد'); } };
   }
@@ -774,10 +939,10 @@ button{cursor:pointer}
     var reading = !!(m = hsh.match(/^#\/d\/(\w+)/));
     document.body.classList.toggle('reading', reading);
     if (!reading) readId = null;
-    if (cur === 'fav' && hsh !== '#/fav') stopSeg();
     if (reading) { cur = 'read'; reader(m[1]); }
     else if (hsh === '#/tasbih') { cur = 'tasbih'; tasbih(); }
     else if (hsh === '#/fav') { cur = 'fav'; favs(); }
+    else if (hsh === '#/search') { cur = 'search'; search(); }
     else if (hsh === '#/history') { cur = 'history'; history(); }
     else if (hsh === '#/settings') { cur = 'settings'; settings(); }
     else { cur = 'home'; home(); }
