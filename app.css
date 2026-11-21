@@ -287,3 +287,23 @@ body.has-mini{padding-bottom:calc(8.4rem + env(safe-area-inset-bottom,0px))}
 .ar,.q,.intro-ar{text-align:center;text-align-last:center}
 @media (max-width:600px){.ar,.q{text-align:center}}
 .fv .pa.tap{cursor:pointer}
+/* اعمال استاد */
+.ostcard{margin:0 0 .8rem;border:1px solid var(--amber)}
+.ost{background:var(--paper);border:1px solid var(--rule);border-inline-start:4px solid var(--cc);border-radius:12px;padding:.7rem .9rem;display:grid;gap:.3rem}
+.ost-h{display:flex;gap:.5rem;align-items:flex-start;justify-content:space-between}
+.ost-h b{font-size:1rem}
+.ost p{margin:0;font-size:.93rem;color:var(--fa-ink);line-height:1.9}
+.tm{font-size:.8rem;color:var(--muted);background:var(--chip);border-radius:999px;padding:.1rem .6rem;justify-self:start}
+.vb{flex:none;font-size:.75rem;font-weight:700;border-radius:999px;padding:.12rem .6rem;white-space:nowrap}
+.vb.ok{background:var(--green-t);color:var(--green);border:1px solid var(--green)}
+.vb.mid{background:var(--amber-t);color:var(--amber);border:1px solid var(--amber)}
+.vb.low{background:var(--chip);color:var(--muted);border:1px solid var(--rule)}
+.ost-l{display:flex;flex-wrap:wrap;gap:.4rem}
+.ost-l a{font-size:.85rem;text-decoration:none;color:var(--cc);background:var(--ct);border-radius:999px;padding:.25rem .75rem}
+.ost-plan{display:grid;gap:.5rem}
+.ost-plan .btn{white-space:normal;text-align:center}
+.n4{background:var(--ct);border-radius:14px;padding:.8rem;display:grid;gap:.6rem}
+.n4-h{font-weight:700;color:var(--cc)}
+.n4-g{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.n4-b{border:1px solid var(--rule);background:var(--paper);border-radius:12px;padding:.7rem .4rem;font-size:.95rem;display:flex;gap:.4rem;align-items:center;justify-content:center}
+.n4-b[aria-pressed="true"]{background:var(--green);color:#fff;border-color:var(--green)}
