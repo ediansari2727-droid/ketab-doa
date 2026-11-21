@@ -293,6 +293,7 @@ body.has-mini{padding-bottom:calc(8.4rem + env(safe-area-inset-bottom,0px))}
 .ar-i{display:block;max-width:100%;text-align:center;margin:.35rem 0 .1rem}
 .ar,.q,.intro-ar{text-align:center;text-align-last:center}
 @media (max-width:600px){.ar,.q{text-align:center}}
+.fv .pa.tap{cursor:pointer}
 </style>
 </head>
 <body>
@@ -687,10 +688,12 @@ body.has-mini{padding-bottom:calc(8.4rem + env(safe-area-inset-bottom,0px))}
     var el = document.querySelector('.fv[data-k="' + f.id + ':' + f.i + '"]'); if (el) el.classList.add('playing');
     segTimer = setInterval(function () { if (seg.currentTime >= f.t1) { clearInterval(segTimer); seg.pause(); if (el) el.classList.remove('playing'); if (after) after(); } }, 120);
   }
-  function playAll() {
-    var list = st.fav.filter(function (f) { return f.t1 != null && audioOf(f.id); });
+  function playAll(from) {
+    var ok = function (f) { return f.t1 != null && audioOf(f.id); };
+    var list = st.fav.filter(ok);
     if (!list.length) { toast('اول برای منتخب‌ها بخش صوت تعیین کنید'); return; }
-    var k = 0; queue = true;
+    var k = 0; if (from) { var head = st.fav.slice(0, from).filter(ok).length; k = head < list.length ? head : 0; }
+    queue = true;
     var next = function () { if (!queue) return; if (k >= list.length) { if (st.favLoop) k = 0; else { stopSeg(); return; } } playSeg(list[k++], function () { setTimeout(next, 600); }); };
     next();
   }
@@ -708,16 +711,18 @@ body.has-mini{padding-bottom:calc(8.4rem + env(safe-area-inset-bottom,0px))}
       var c = sec.cloneNode(true); c.querySelectorAll('.star').forEach(function (x) { x.remove(); });
       var hasA = !!audioOf(f.id), segTxt = f.t1 != null ? mmss(f.t0) + ' تا ' + mmss(f.t1) : '';
       h += '<div class="fv c-' + d.color + '" data-k="' + f.id + ':' + f.i + '"><div class="fv-h"><a href="#/d/' + f.id + '">' + d.title + '</a><button class="ib fx" data-k="' + k + '" aria-label="حذف از منتخب‌ها">✕</button></div>' + c.outerHTML +
-        (hasA ? '<div class="fv-a">' + (f.t1 != null ? '<button class="btn fp" data-k="' + k + '">▶ پخش این بند <small>(' + segTxt + ')</small></button>' : '') +
+        (hasA ? '<div class="fv-a">' + (f.t1 != null ? '<button class="btn fp" data-k="' + k + '">▶ پخش از این بند <small>(' + segTxt + ')</small></button>' : '') +
         '<button class="btn ghost fe" data-k="' + k + '">' + (f.t1 != null ? 'ویرایش بخش صوت' : '⏱ تعیین بخش صوت') + '</button></div><div class="seged" id="se' + k + '" hidden></div>' : '<p class="hint">این دعا صوت ندارد.</p>') + '</div>';
     });
-    h += '<p class="hint">ترتیب پخش همان ترتیب این فهرست است. برای حذف، ✕ را بزنید.</p></div>';
+    h += '<p class="hint">ترتیب پخش همان ترتیب این فهرست است. روی هر بند بزنید تا پخش از همان‌جا شروع شود و بندهای بعدی هم پشت سر هم بیایند. برای حذف، ✕ را بزنید.</p></div>';
     app.innerHTML = h;
-    document.getElementById('pall').onclick = playAll;
+    document.getElementById('pall').onclick = function () { playAll(0); };
     document.getElementById('pstop').onclick = stopSeg;
     document.getElementById('ploop').onclick = function () { st.favLoop = !st.favLoop; save(); this.setAttribute('aria-checked', String(st.favLoop)); };
     app.querySelectorAll('.fx').forEach(function (b) { b.onclick = function () { st.fav.splice(+b.dataset.k, 1); save(); favs(); }; });
-    app.querySelectorAll('.fp').forEach(function (b) { b.onclick = function () { queue = null; playSeg(st.fav[+b.dataset.k]); }; });
+    app.querySelectorAll('.fp').forEach(function (b) { b.onclick = function () { playAll(+b.dataset.k); }; });
+    // tap on a passage's text: play from it and go on with the next ones
+    app.querySelectorAll('.fv').forEach(function (v) { var x = v.dataset.k.split(':'), k = favIdx(x[0], +x[1]), p = v.querySelector('.pa'); if (p && k >= 0 && st.fav[k].t1 != null) { p.classList.add('tap'); p.onclick = function (e) { if (!e.target.closest('a,button,input')) playAll(k); }; } });
     app.querySelectorAll('.fe').forEach(function (b) { b.onclick = function () { editSeg(+b.dataset.k); }; });
   }
   function editSeg(k) {
