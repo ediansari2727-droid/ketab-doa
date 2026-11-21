@@ -1,6 +1,6 @@
 // Offline cache + daily reminder for کتاب دعای روزانه
-var V = 'doa-v13';
-var CORE = ['./', 'index.html', 'app.css', 'app.js', 'content.js', 'times.js', 'sortable.min.js', 'manifest.webmanifest',
+var V = 'doa-v14';
+var CORE = ['./', 'index.html', 'app.css', 'app.js', 'content.js', 'times.js', 'oghat.js', 'sortable.min.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/badge.png',
   'fonts/amiri-arabic-400-normal.woff2', 'fonts/amiri-arabic-700-normal.woff2', 'fonts/vazirmatn-arabic-400-normal.woff2',
   'fonts/vazirmatn-arabic-700-normal.woff2', 'fonts/scheherazade-new-arabic-400-normal.woff2', 'fonts/scheherazade-new-arabic-700-normal.woff2',
@@ -46,6 +46,11 @@ function check() {
     if (!s) return;
     var now = new Date(), today = dk(now);
     if (s.day !== today) { s.day = today; s.notified = []; s.left = -1; }
+    // prayer reminders that came due while the app was closed (only if the browser woke us within 20 minutes)
+    var due = (s.pr || []).filter(function (p) { return p.at <= now.getTime() && p.at > now.getTime() - 20 * 6e4 && !p.sent; });
+    due.forEach(function (p) { p.sent = 1; });
+    var shown = Promise.all(due.map(function (p) { return self.registration.showNotification(p.title, { body: p.body, icon: 'icons/icon-192.png', badge: 'icons/badge.png', tag: 'doa-pr-' + p.at, dir: 'rtl', lang: 'fa', data: { url: './#/oghat' } }); }));
+    if (due.length) return shown.then(function () { return c.put('state.json', new Response(JSON.stringify(s))); });
     if (s.left === 0) return;
     var past = s.times.filter(function (t) { return t <= hm(now); }).sort(), t = past[past.length - 1];
     if (!t || s.notified.indexOf(t) >= 0) return;
@@ -58,7 +63,8 @@ function check() {
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
-    for (var i = 0; i < cs.length; i++) { cs[i].postMessage({ go: '#/' }); return cs[i].focus(); }
-    return self.clients.openWindow('./#/');
+    var url = (e.notification.data && e.notification.data.url) || './#/', go = url.replace(/^\.\//, '');
+    for (var i = 0; i < cs.length; i++) { cs[i].postMessage({ go: go }); return cs[i].focus(); }
+    return self.clients.openWindow(url);
   }));
 });
