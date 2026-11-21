@@ -680,18 +680,33 @@ body.has-mini{padding-bottom:calc(8.4rem + env(safe-area-inset-bottom,0px))}
   parsed.c = {};
   var seg = G, segTimer = null, queue = null, jumpTo = null;
   function stopSeg() { gStop(); }
+  // where a passage sits in the recitation: exact times if known, else a guess from text length
+  function arLen(el) { return el ? (el.textContent.match(/[\u0621-\u064A]/g) || []).length : 0; }
+  function estSeg(id, i, dur) {
+    var T = (window.TIMES || {})[id]; if (T && T[i] != null) return { t0: T[i], t1: T[i + 1] != null ? T[i + 1] : dur };
+    var b = parsed(id), w = [arLen(b.querySelector('.intro-ar'))];
+    b.querySelectorAll('.pa').forEach(function (p) { w.push(arLen(p.querySelector('.ar,.q'))); });
+    var tot = w.reduce(function (a, x) { return a + x; }, 0) || 1, a = 0;
+    for (var k = 0; k <= i; k++) a += w[k];
+    return { t0: Math.max(0, a / tot * dur - 1), t1: Math.min(dur, (a + w[i + 1]) / tot * dur + 1) };
+  }
   function playSeg(f, after) {
     clearInterval(segTimer);
-    var src = audioOf(f.id); if (!src || f.t1 == null) { if (after) after(); return; }
+    var src = audioOf(f.id); if (!src) { if (after) after(); return; }
+    if (f.t1 == null) {
+      var go = function () { var e = estSeg(f.id, f.i, G.duration); playSeg({ id: f.id, i: f.i, t0: e.t0, t1: e.t1 }, after); };
+      if (G._src === src && G.readyState >= 1) go(); else { if (G._src !== src) { G._src = src; G.src = src; } G.addEventListener('loadedmetadata', go, { once: true }); G.load(); }
+      return;
+    }
     gPlay(src, { id: f.id, fav: true, title: 'منتخب‌ها', label: BY[f.id].title.replace(/<[^>]+>/g, '') + ' · بند ' + fa(f.i + 1) }, f.t0 || 0);
     document.querySelectorAll('.fv.playing').forEach(function (x) { x.classList.remove('playing'); });
     var el = document.querySelector('.fv[data-k="' + f.id + ':' + f.i + '"]'); if (el) el.classList.add('playing');
     segTimer = setInterval(function () { if (seg.currentTime >= f.t1) { clearInterval(segTimer); seg.pause(); if (el) el.classList.remove('playing'); if (after) after(); } }, 120);
   }
   function playAll(from) {
-    var ok = function (f) { return f.t1 != null && audioOf(f.id); };
+    var ok = function (f) { return audioOf(f.id); };
     var list = st.fav.filter(ok);
-    if (!list.length) { toast('اول برای منتخب‌ها بخش صوت تعیین کنید'); return; }
+    if (!list.length) { toast('این بندها صوت ندارند'); return; }
     var k = 0; if (from) { var head = st.fav.slice(0, from).filter(ok).length; k = head < list.length ? head : 0; }
     queue = true;
     var next = function () { if (!queue) return; if (k >= list.length) { if (st.favLoop) k = 0; else { stopSeg(); return; } } playSeg(list[k++], function () { setTimeout(next, 600); }); };
@@ -711,7 +726,7 @@ body.has-mini{padding-bottom:calc(8.4rem + env(safe-area-inset-bottom,0px))}
       var c = sec.cloneNode(true); c.querySelectorAll('.star').forEach(function (x) { x.remove(); });
       var hasA = !!audioOf(f.id), segTxt = f.t1 != null ? mmss(f.t0) + ' تا ' + mmss(f.t1) : '';
       h += '<div class="fv c-' + d.color + '" data-k="' + f.id + ':' + f.i + '"><div class="fv-h"><a href="#/d/' + f.id + '">' + d.title + '</a><button class="ib fx" data-k="' + k + '" aria-label="حذف از منتخب‌ها">✕</button></div>' + c.outerHTML +
-        (hasA ? '<div class="fv-a">' + (f.t1 != null ? '<button class="btn fp" data-k="' + k + '">▶ پخش از این بند <small>(' + segTxt + ')</small></button>' : '') +
+        (hasA ? '<div class="fv-a">' + ('<button class="btn fp" data-k="' + k + '">▶ پخش از این بند <small>(' + (segTxt || 'جای تقریبی') + ')</small></button>') +
         '<button class="btn ghost fe" data-k="' + k + '">' + (f.t1 != null ? 'ویرایش بخش صوت' : '⏱ تعیین بخش صوت') + '</button></div><div class="seged" id="se' + k + '" hidden></div>' : '<p class="hint">این دعا صوت ندارد.</p>') + '</div>';
     });
     h += '<p class="hint">ترتیب پخش همان ترتیب این فهرست است. روی هر بند بزنید تا پخش از همان‌جا شروع شود و بندهای بعدی هم پشت سر هم بیایند. برای حذف، ✕ را بزنید.</p></div>';
@@ -722,7 +737,7 @@ body.has-mini{padding-bottom:calc(8.4rem + env(safe-area-inset-bottom,0px))}
     app.querySelectorAll('.fx').forEach(function (b) { b.onclick = function () { st.fav.splice(+b.dataset.k, 1); save(); favs(); }; });
     app.querySelectorAll('.fp').forEach(function (b) { b.onclick = function () { playAll(+b.dataset.k); }; });
     // tap on a passage's text: play from it and go on with the next ones
-    app.querySelectorAll('.fv').forEach(function (v) { var x = v.dataset.k.split(':'), k = favIdx(x[0], +x[1]), p = v.querySelector('.pa'); if (p && k >= 0 && st.fav[k].t1 != null) { p.classList.add('tap'); p.onclick = function (e) { if (!e.target.closest('a,button,input')) playAll(k); }; } });
+    app.querySelectorAll('.fv').forEach(function (v) { var x = v.dataset.k.split(':'), k = favIdx(x[0], +x[1]), p = v.querySelector('.pa'); if (p && k >= 0 && audioOf(st.fav[k].id)) { p.classList.add('tap'); p.onclick = function (e) { if (!e.target.closest('a,button,input')) playAll(k); }; } });
     app.querySelectorAll('.fe').forEach(function (b) { b.onclick = function () { editSeg(+b.dataset.k); }; });
   }
   function editSeg(k) {
