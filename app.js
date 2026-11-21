@@ -11,12 +11,13 @@
     afv: { b: 'ف', when: 'شب، پیش از خواب' },
     namaz: { b: 'ن', when: 'هر وقت خواستید' },
     amal: { b: 'ص', when: 'هر روز، حتی اندک' },
+    ostad: { b: '★', when: 'راهنما' },
     sources: { b: 'م', when: 'پیوست' }
   };
-  var SW = { s6: 'صبح و شام', s7: 'هنگام گرفتاری', s8: 'روزانه', s12: 'استغفار', s16: 'استغفار', s31: 'توبه', s38: 'استغفار', s17: 'روزانه', s20: 'هر وقت خواستید', s21: 'هنگام اندوه', s23: 'روزانه', s29: 'هنگام تنگی روزی', s30: 'برای ادای وام', s49: 'هنگام آزار بدخواهان', s54: 'هنگام اندوه' };
+  var SW = { s6: 'صبح و شام', s7: 'هنگام گرفتاری', s8: 'روزانه', s9: 'استغفار', s10: 'استغفار', s12: 'استغفار', s16: 'استغفار', s31: 'توبه', s38: 'استغفار', s17: 'روزانه', s20: 'هر وقت خواستید', s21: 'هنگام اندوه', s23: 'روزانه', s29: 'هنگام تنگی روزی', s30: 'برای ادای وام', s49: 'هنگام آزار بدخواهان', s50: 'استغفار', s53: 'استغفار', s54: 'هنگام اندوه' };
   Object.keys(SW).forEach(function (k) { META[k] = { b: fa(k.slice(1)), when: SW[k], off: k !== 's6' }; });
   function defOn(id) { return !(META[id] && META[id].off); }
-  var DEFAULT_ORDER = DUAS.map(function (d) { return d.id; }).filter(function (id) { return id !== 'sources'; });
+  var DEFAULT_ORDER = DUAS.map(function (d) { return d.id; }).filter(function (id) { return id !== 'sources' && id !== 'ostad'; });
   var KEY = 'doa-app-v1';
   var app = document.getElementById('app');
   var root = document.documentElement;
@@ -33,7 +34,7 @@
   def('tr', true); def('wake', false); def('theme', 'auto');
   def('rem', [{ t: '07:00', on: true }, { t: '21:30', on: true }]);
   def('notified', {}); def('pos', {});
-  def('tas', { i: 0, n: 0, goal: 33 }); def('fav', []); def('accent', 'lapis'); def('favLoop', false);
+  def('tas', { i: 0, n: 0, goal: 33 }); def('fav', []); def('accent', 'lapis'); def('favLoop', false); def('n4', {});
   // new duas added later go to the end of the user's order
   DEFAULT_ORDER.forEach(function (id) { if (st.order.indexOf(id) < 0) { st.order.push(id); st.plan[id] = defOn(id); } });
   st.order = st.order.filter(function (id) { return BY[id]; });
@@ -233,6 +234,7 @@
       (next ? '<a class="btn" style="margin-top:.4rem;padding:.4rem 1rem;font-size:.88rem" href="#/d/' + next + '">ادامه: ' + BY[next].title + ' ←</a>' : '') + '</div></div>';
     if (tot && n === tot) h += '<div class="allgood">الحمدلله؛ همهٔ دعاهای امروز خوانده شد ✓</div>';
     else if (miss) h += '<div class="banner">⏰ <span><b>یادآور ' + fa(miss) + ':</b> هنوز ' + fa(tot - n) + ' دعا از برنامهٔ امروز مانده است.</span></div>';
+    h += '<a class="card c-amber ostcard" href="#/d/ostad" style="grid-template-columns:auto 1fr"><span class="badge">★</span><span class="t"><strong>اعمال استاد</strong><small>دعا، نماز، صدقه و روزه؛ با زمان هر مورد در فایل صوتی و اعتبارش</small></span></a>';
     h += '<a class="searchbar" href="#/search">⌕ جستجو در همهٔ دعاها و ترجمه‌ها</a>';
     h += '<div class="sec-h"><h2>فهرست دعاها</h2><button class="chipbtn" id="edit" aria-pressed="' + editing + '">' + (editing ? 'تمام ✓' : '↕ ترتیب و برنامه') + '</button></div>';
     h += '<ul class="cards' + (editing ? ' editing' : '') + '" id="cards">' + st.order.map(card).join('') + '</ul>';
@@ -263,7 +265,7 @@
     readId = id;
     var ids = st.order, i = ids.indexOf(id), nextId = null;
     for (var j = 1; j <= ids.length; j++) { var c = ids[(i + j) % ids.length]; if (c !== id && st.plan[c] && !isDone(c)) { nextId = c; break; } }
-    var done = isDone(id), inPlan = id !== 'sources';
+    var done = isDone(id), inPlan = id !== 'sources' && id !== 'ostad';
     var h = '<div class="c-' + d.color + '"><div class="rprog" id="rprog"></div><div class="rbar"><a class="ib" href="#/" aria-label="بازگشت">→</a><h1>' + d.title + '</h1>' +
       '<button class="ib" id="aa" aria-label="اندازه و خط">Aa</button></div><div class="wrap">' +
       '<article class="frame"><div class="ch-h"><div class="orn">۞</div><span class="eyebrow">' + d.eyebrow + '</span><h2>' + d.title + '</h2>' + (d.sub ? '<p class="ch-sub">' + d.sub + '</p>' : '') + '</div>' +
@@ -290,7 +292,7 @@
         save(); var o = favIdx(id, i) >= 0; b.setAttribute('aria-pressed', String(o)); b.textContent = o ? '★' : '☆'; };
       sec.appendChild(b);
     });
-    buildPlayers(id);
+    buildPlayers(id); extras(id);
     var y = st.pos[id] || 0, jt = jumpTo; jumpTo = null;
     requestAnimationFrame(function () {
       if (jt != null && document.getElementById('p' + jt)) { var el = document.getElementById('p' + jt); el.scrollIntoView({ block: 'center' }); el.classList.add('flash'); setTimeout(function () { el.classList.remove('flash'); }, 2200); }
@@ -299,6 +301,41 @@
     });
   }
   var posT;
+  // buttons inside a page: add a group of duas to the daily plan; the four-prayer counter
+  var N4 = { jebreil: 'جبرئیل', mikail: 'میکائیل', esrafil: 'اسرافیل', ezrail: 'عزرائیل' };
+  function extras(id) {
+    app.querySelectorAll('[data-plan]').forEach(function (b) {
+      var ids = b.dataset.plan.split(',').filter(function (x) { return BY[x]; });
+      var all = function () { return ids.every(function (x) { return st.plan[x]; }); };
+      var lab = b.textContent;
+      var show = function () { b.textContent = all() ? '✓ در برنامهٔ روزانه است (برای برداشتن بزنید)' : lab; b.classList.toggle('done', all()); };
+      b.onclick = function () {
+        var on = !all();
+        ids.forEach(function (x) { st.plan[x] = on; if (on && st.order.indexOf(x) < 0) st.order.push(x); });
+        save(); show(); toast(on ? fa(ids.length) + ' مورد به برنامهٔ روزانه اضافه شد' : 'از برنامهٔ روزانه برداشته شد');
+      };
+      show();
+    });
+    app.querySelectorAll('[data-n4]').forEach(function (box) {
+      var keys = box.dataset.n4.split(','), k = today();
+      var draw = function () {
+        var m = st.n4[k] || {}, n = keys.filter(function (x) { return m[x]; }).length;
+        box.innerHTML = '<div class="n4-h">نمازهای امروز: ' + fa(n) + ' از ' + fa(keys.length) + '</div><div class="n4-g">' + keys.map(function (x) {
+          return '<button class="n4-b" data-k="' + x + '" aria-pressed="' + !!m[x] + '"><span>' + (m[x] ? '✓' : '○') + '</span>هدیه به ' + N4[x] + '</button>';
+        }).join('') + '</div>';
+      };
+      box.onclick = function (e) {
+        var b = e.target.closest('.n4-b'); if (!b) return;
+        var m = st.n4[k] = st.n4[k] || {}; m[b.dataset.k] = !m[b.dataset.k];
+        Object.keys(st.n4).forEach(function (d) { if (d < dkey(new Date(Date.now() - 60 * 864e5))) delete st.n4[d]; });
+        var full = keys.every(function (x) { return m[x]; });
+        if (full && !isDone(id)) { setDone(id, true); var mk = document.getElementById('mk'); if (mk) { mk.classList.add('done'); mk.textContent = '✓ امروز خوانده شد'; } }
+        save(); draw(); if (navigator.vibrate) navigator.vibrate(25);
+        if (full) toast('هر چهار نماز امروز خوانده شد 🌿');
+      };
+      draw();
+    });
+  }
   function onScroll() {
     if (cur !== 'read') return;
     var max = document.documentElement.scrollHeight - innerHeight, p = max > 0 ? scrollY / max : 0;
