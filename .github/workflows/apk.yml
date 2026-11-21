@@ -17,7 +17,7 @@ jobs:
       - name: Prepare web files
         run: |
           mkdir -p android-app/www
-          cp -r index.html app.css app.js content.js times.js oghat.js sortable.min.js fonts icons audio android-app/www/
+          cp -r index.html app.css app.js content.js times.js oghat.js taqvim.js sortable.min.js fonts icons audio android-app/www/
       - name: Install and add Android
         working-directory: android-app
         run: |

@@ -324,3 +324,33 @@ body.has-mini{padding-bottom:calc(8.4rem + env(safe-area-inset-bottom,0px))}
 .dial .needle{position:absolute;left:50%;top:50%;width:4px;height:96px;margin-left:-2px;margin-top:-96px;background:linear-gradient(var(--gold),var(--acc));border-radius:4px;transform-origin:50% 100%}
 .dial .needle b{position:absolute;top:-1.6rem;left:50%;transform:translateX(-50%);font-size:1.5rem;font-style:normal}
 #qstat.ok{color:var(--green);font-weight:800}
+
+/* ---------- تقویم و مناسبت‌ها ---------- */
+.tqcard{margin-top:.8rem}
+.tq-h{display:flex;justify-content:space-between;align-items:center;gap:.6rem}
+.tq-h .chipbtn{text-decoration:none;color:var(--ink);white-space:nowrap}
+.tq-sec{margin:.7rem 0 .2rem;font-size:.8rem;font-weight:700;color:var(--gold)}
+.ev{padding:.15rem 0}
+.ev>b{display:block;font-size:.95rem}
+.ev.e>b{color:var(--green)} .ev.s>b{color:var(--ruby)}
+.ev>small{display:block;color:var(--muted);font-size:.8rem}
+.sgs{list-style:none;margin:.25rem 0 .3rem;padding:0;display:grid;gap:.35rem}
+.sg{background:var(--chip);border-radius:12px;padding:.4rem .7rem;font-size:.88rem;line-height:1.7}
+.sg a{font-weight:700;color:var(--acc);text-decoration:none}
+.sg.in{border:1px solid var(--acc)}
+.sg small{display:block;color:var(--muted);font-size:.78rem}
+.rl{font-style:normal;font-size:.7rem;border-radius:999px;padding:.05rem .45rem;margin-inline-start:.35rem;white-space:nowrap;border:1px solid currentColor}
+.rl.ok{color:var(--green)} .rl.wk{color:var(--amber)} .rl.cu{color:var(--violet)} .rl.ap{color:var(--acc)} .rl.na{color:var(--muted)}
+.tq-nav{display:flex;align-items:center;justify-content:space-between;text-align:center;margin-bottom:.6rem}
+.tq-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:.25rem}
+.tq-grid .wd{text-align:center;font-size:.75rem;color:var(--muted);padding:.2rem 0}
+.dc{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid transparent;background:var(--chip);border-radius:12px;padding:.3rem 0;min-height:2.9rem;color:var(--ink);font:inherit}
+.dc b{font-size:.98rem;line-height:1.2} .dc small{font-size:.66rem;color:var(--muted);line-height:1.1}
+.dc.fri b{color:var(--ruby)}
+.dc.has::after{content:"";position:absolute;top:4px;left:4px;width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.dc.e::after{background:var(--green)} .dc.s::after{background:var(--ruby)}
+.dc.today{border-color:var(--acc);font-weight:700}
+.dc.sel{background:var(--acc)} .dc.sel b,.dc.sel small{color:#fff}
+.tq-leg{display:flex;flex-wrap:wrap;gap:.3rem .9rem;font-size:.74rem;color:var(--muted);margin:.6rem 0 .2rem}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-inline-end:.25rem;background:var(--gold)}
+.dot.e{background:var(--green)} .dot.s{background:var(--ruby)}

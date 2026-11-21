@@ -64,11 +64,92 @@
   // a past day counts as full if every dua in the current plan was ticked
   function countFull(k) { var m = st.log[k] || {}; return planIds().every(function (id) { return m[id]; }); }
   function toast(msg) { var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove('show'); }, 2600); }
+  var TQ = window.TAQVIM;
+  def('hadj', 0);
+  // تاریخ‌های یک روز (off روز نسبت به امروز، یا تاریخ میلادی [y,m,d])
+  function tqDay(gd) {
+    var ms = Date.UTC(gd[0], gd[1] - 1, gd[2]), wd = new Date(ms).getUTCDay();
+    return { g: gd, ms: ms, wd: wd, j: TQ.toJalali(gd[0], gd[1], gd[2]), h: TQ.hijri(ms, st.hadj) };
+  }
+  function gOff(off) { var d = new Date(); d.setDate(d.getDate() + off); return [d.getFullYear(), d.getMonth() + 1, d.getDate()]; }
+  function jStr(o) { return TQ.WD[o.wd] + ' ' + fa(o.j[2]) + ' ' + TQ.JM[o.j[1] - 1] + ' ' + fa(o.j[0]); }
+  function hStr(o) { return fa(o.h.d) + ' ' + TQ.HM[o.h.m - 1] + ' ' + fa(o.h.y); }
   function dates() {
+    if (TQ) { try { var o = tqDay(gOff(0)); return jStr(o) + ' · ' + hStr(o); } catch (e) {} }
     var d = new Date(), s = '', q = '';
     try { var f = function (o) { return d.toLocaleDateString('fa-IR-u-ca-persian', o); }; s = f({ weekday: 'long' }) + ' ' + f({ day: 'numeric' }) + ' ' + f({ month: 'long' }) + ' ' + f({ year: 'numeric' }).replace(/[^۰-۹]/g, ''); } catch (e) {}
     try { q = d.toLocaleDateString('fa-IR-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) {}
     return s + (q ? ' · ' + q : '');
+  }
+  // ---------- تقویم و مناسبت‌ها ----------
+  var RL = { m: ['مأثور', 'ok'], w: ['سند ضعیف یا محل بحث', 'wk'], c: ['رسم، نه روایت', 'cu'], a: ['پیشنهاد اپ', 'ap'] };
+  function sg(key, full) {
+    var x = TQ.S[key]; if (!x) return '';
+    var lab = '<i class="rl ' + RL[x.r][1] + '">' + RL[x.r][0] + '</i>', inApp = x.id && BY[x.id];
+    var body = (inApp ? '<a href="#/d/' + x.id + '">' + x.t + ' ←</a>' : '<span>' + x.t + '</span>') + lab +
+      (!inApp ? '<i class="rl na">متن در اپ نیست</i>' : '') + (full && x.src ? '<small>' + x.src + '</small>' : '');
+    return '<li class="sg' + (inApp ? ' in' : '') + '">' + body + '</li>';
+  }
+  function evHtml(list, full) {
+    return list.map(function (e) {
+      return '<div class="ev' + (e.k ? ' ' + e.k : '') + '"><b>' + e.t + '</b>' + (e.note && full ? '<small>' + e.note + '</small>' : '') +
+        (e.s && e.s.length ? '<ul class="sgs">' + e.s.map(function (k) { return sg(k, full); }).join('') + '</ul>' : '') + '</div>';
+    }).join('');
+  }
+  // مناسبت‌های روز (بی‌شب‌ها) و امشب (مناسبت‌های شبِ فردا)
+  function dayInfo(gd) {
+    var o = tqDay(gd), nx = new Date(Date.UTC(gd[0], gd[1] - 1, gd[2] + 1)), on = tqDay([nx.getUTCFullYear(), nx.getUTCMonth() + 1, nx.getUTCDate()]);
+    var day = TQ.events(o).filter(function (e) { return !e.n; }), night = TQ.events(on).filter(function (e) { return e.n; });
+    return { o: o, day: day, night: night, month: TQ.MONTH[o.h.m] };
+  }
+  function todayCard() {
+    if (!TQ) return '';
+    var x; try { x = dayInfo(gOff(0)); } catch (e) { return ''; }
+    var h = '<div class="box tqcard"><div class="tq-h"><div><strong>' + jStr(x.o) + '</strong><div class="muted">' + hStr(x.o) + '</div></div><a class="chipbtn" href="#/taqvim">تقویم ←</a></div>';
+    if (x.day.length) h += '<div class="tq-sec">امروز</div>' + evHtml(x.day);
+    if (x.night.length) h += '<div class="tq-sec">امشب</div>' + evHtml(x.night);
+    if (x.month) h += '<div class="tq-sec">' + x.month.t + '</div>' + evHtml([{ t: '', s: x.month.s }]);
+    if (!x.day.length && !x.night.length && !x.month) h += '<p class="muted" style="margin:.4rem 0 0">امروز مناسبت ویژه‌ای در تقویم اپ نیست؛ برنامهٔ روزانهٔ خودتان را بخوانید.</p>';
+    return h + '</div>';
+  }
+  var tqView = null, tqSel = null;
+  function taqvim() {
+    var t0 = gOff(0), j0 = TQ.toJalali(t0[0], t0[1], t0[2]);
+    if (!tqView) tqView = [j0[0], j0[1]];
+    if (!tqSel) tqSel = t0;
+    var jy = tqView[0], jm = tqView[1], n = TQ.jLen(jy, jm), g1 = TQ.toGreg(jy, jm, 1);
+    var first = tqDay(g1), lead = (first.wd + 1) % 7; // شنبه = ستون اول
+    var h = '<header class="rbar"><a class="ib" href="#/" aria-label="بازگشت">→</a><strong style="flex:1">تقویم و مناسبت‌ها</strong></header><div class="wrap">';
+    var hA = first.h, gl = TQ.toGreg(jy, jm, n), hB = tqDay(gl).h;
+    h += '<div class="box"><div class="tq-nav"><button class="ib" id="tq-prev" aria-label="ماه قبل">→</button><div><strong>' + TQ.JM[jm - 1] + ' ' + fa(jy) + '</strong><div class="muted">' +
+      TQ.HM[hA.m - 1] + (hB.m !== hA.m ? ' – ' + TQ.HM[hB.m - 1] : '') + ' ' + fa(hB.y) + '</div></div><button class="ib" id="tq-next" aria-label="ماه بعد">←</button></div>';
+    h += '<div class="tq-grid">' + ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'].map(function (w) { return '<span class="wd">' + w + '</span>'; }).join('');
+    for (var i = 0; i < lead; i++) h += '<span></span>';
+    for (var d = 1; d <= n; d++) {
+      var gd = TQ.toGreg(jy, jm, d), x = dayInfo(gd), o = x.o;
+      var k = x.day.some(function (e) { return e.k === 'e'; }) ? ' e' : x.day.some(function (e) { return e.k === 's'; }) ? ' s' : '';
+      var cls = 'dc' + k + (o.wd === 5 ? ' fri' : '') + (gd.join() === t0.join() ? ' today' : '') + (gd.join() === tqSel.join() ? ' sel' : '') + (x.day.length || x.night.length ? ' has' : '');
+      h += '<button class="' + cls + '" data-g="' + gd.join('-') + '"><b>' + fa(d) + '</b><small>' + fa(o.h.d) + '</small></button>';
+    }
+    h += '</div><div class="tq-leg"><span><i class="dot e"></i>عید و ولادت</span><span><i class="dot s"></i>سوگ</span><span><i class="dot h"></i>مناسبت دیگر</span><span>عدد کوچک: روز قمری</span></div>' +
+      '<button class="btn ghost wide" id="tq-today">امروز</button></div>';
+    var x = dayInfo(tqSel);
+    h += '<div class="box"><h2>' + jStr(x.o) + '</h2><div class="muted">' + hStr(x.o) + ' · ' + fa(x.o.g[2]) + '/' + fa(x.o.g[1]) + '/' + fa(x.o.g[0]) + ' میلادی</div>';
+    if (x.day.length) h += '<div class="tq-sec">روز</div>' + evHtml(x.day, true);
+    if (x.night.length) h += '<div class="tq-sec">شبِ پس از این روز</div>' + evHtml(x.night, true);
+    if (x.month) h += '<div class="tq-sec">' + x.month.t + '</div>' + (x.month.note ? '<p class="muted" style="margin:.2rem 0">' + x.month.note + '</p>' : '') + evHtml([{ t: '', s: x.month.s }], true);
+    if (!x.day.length && !x.night.length && !x.month) h += '<p class="muted">مناسبت ویژه‌ای در تقویم اپ نیست.</p>';
+    h += '<p class="note2"><b>برچسب‌ها:</b> «مأثور» یعنی در منبع کهن روایی آمده؛ «سند ضعیف یا محل بحث» یعنی منبع دارد ولی سندش محکم نیست؛ «رسم، نه روایت» یعنی برای این وقت روایتی نیست و فقط رایج است؛ «پیشنهاد اپ» یعنی از میان دعاهای موجود در اپ، به مناسبت موضوع پیشنهاد شده است. «متن در اپ نیست» یعنی متنش هنوز به اپ اضافه نشده.</p></div>';
+    h += '<div class="box"><h2>تنظیم تاریخ قمری</h2><div class="row"><span style="flex:1">جابه‌جایی</span><div class="seg" id="tq-adj">' +
+      [[1, '+۱ روز'], [0, 'بدون تغییر'], [-1, '−۱ روز']].map(function (a) { return '<button data-v="' + a[0] + '" aria-pressed="' + (st.hadj === a[0]) + '">' + a[1] + '</button>'; }).join('') + '</div></div>' +
+      '<p class="note2"><b>صادقانه:</b> تاریخ قمری بدون اینترنت و با محاسبهٔ نجومی امکان دیدن هلال در تهران حساب می‌شود (این روش با هفت آغاز ماهِ اعلام‌شده در ایران از ۱۴۴۵ تا ۱۴۴۷ آزموده شد و همه درست بود). ولی آغاز ماه را رؤیت واقعی هلال تعیین می‌کند و ممکن است یک روز فرق کند. اگر با اعلام رسمی نمی‌خواند، اینجا یک روز جلو یا عقب ببرید. تاریخ‌های مناسبت‌ها مطابق تقویم رسمی ایران است.</p></div></div>';
+    app.innerHTML = h;
+    function mv(dm) { var m = jm + dm, y = jy; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } tqView = [y, m]; render(); }
+    document.getElementById('tq-prev').onclick = function () { mv(-1); };
+    document.getElementById('tq-next').onclick = function () { mv(1); };
+    document.getElementById('tq-today').onclick = function () { tqView = null; tqSel = null; render(); };
+    app.querySelector('.tq-grid').addEventListener('click', function (e) { var b = e.target.closest('.dc'); if (!b) return; tqSel = b.dataset.g.split('-').map(Number); render(); var t = app.querySelectorAll('.box')[1]; if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    document.getElementById('tq-adj').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; st.hadj = +b.dataset.v; save(); render(); };
   }
 
   // ---------- appearance ----------
@@ -260,6 +341,7 @@
       (next ? '<a class="btn" style="margin-top:.4rem;padding:.4rem 1rem;font-size:.88rem" href="#/d/' + next + '">ادامه: ' + BY[next].title + ' ←</a>' : '') + '</div></div>';
     if (tot && n === tot) h += '<div class="allgood">الحمدلله؛ همهٔ دعاهای امروز خوانده شد ✓</div>';
     else if (miss) h += '<div class="banner">⏰ <span><b>یادآور ' + fa(miss) + ':</b> هنوز ' + fa(tot - n) + ' دعا از برنامهٔ امروز مانده است.</span></div>';
+    h += todayCard();
     h += prCard();
     h += '<a class="card c-amber ostcard" href="#/d/ostad" style="grid-template-columns:auto 1fr"><span class="badge">★</span><span class="t"><strong>اعمال استاد</strong><small>دعا، نماز، صدقه و روزه؛ با زمان هر مورد در فایل صوتی و اعتبارش</small></span></a>';
     h += '<a class="searchbar" href="#/search">⌕ جستجو در همهٔ دعاها و ترجمه‌ها</a>';
@@ -884,6 +966,7 @@
     else if (hsh === '#/history') { cur = 'history'; history(); }
     else if (hsh === '#/settings') { cur = 'settings'; settings(); }
     else if (hsh === '#/oghat') { cur = 'oghat'; oghat(); }
+    else if (hsh === '#/taqvim' && TQ) { cur = 'taqvim'; taqvim(); }
     else { cur = 'home'; home(); }
     document.querySelectorAll('#tabs a').forEach(function (a) { a.classList.toggle('on', a.dataset.t === cur); });
     wake();
