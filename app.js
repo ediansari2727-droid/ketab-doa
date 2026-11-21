@@ -135,7 +135,7 @@
     mini();
   }
   function gStop() { clearInterval(segTimer); queue = null; G.pause(); gInfo = null; G.loop = false; clearTimeout(sleepT); sleepAt = 0; mini(); syncPlayers();
-    document.querySelectorAll('.fv.playing').forEach(function (x) { x.classList.remove('playing'); }); }
+    document.querySelectorAll('.fv.playing').forEach(function (x) { x.classList.remove('playing'); }); follow(); }
   if ('mediaSession' in navigator) try {
     navigator.mediaSession.setActionHandler('play', function () { G.play(); });
     navigator.mediaSession.setActionHandler('pause', function () { G.pause(); });
@@ -175,7 +175,33 @@
     else if (b.id === 'm-go' && gInfo && gInfo.id) location.hash = gInfo.fav ? '#/fav' : '#/d/' + gInfo.id;
     mini(); syncPlayers();
   });
-  ['play', 'pause', 'timeupdate', 'loadedmetadata', 'ended'].forEach(function (ev) { G.addEventListener(ev, function () { mini(); syncPlayers(); }); });
+  ['play', 'pause', 'timeupdate', 'loadedmetadata', 'ended'].forEach(function (ev) { G.addEventListener(ev, function () { mini(); syncPlayers(); follow(); }); });
+  // highlight the passage being recited on the open dua page, and keep it in view
+  var hiIdx = -1, userAt = 0;
+  ['touchstart', 'wheel', 'keydown'].forEach(function (ev) { addEventListener(ev, function () { userAt = Date.now(); }, { passive: true }); });
+  function nowIdx(id, src, t) {
+    var secs = app.querySelectorAll('.ch-b .pa'); if (!secs.length) return -1;
+    var T = (window.TIMES || {})[id];
+    if (T && src === audioOf(id)) { var k = -1; for (var i = 0; i < T.length; i++) if (T[i] != null && T[i] <= t + 0.3) k = i; return k; }
+    if (secs.length === 1) return 0;
+    var a = app.querySelector('.cp[data-src="' + src + '"]'), pl = a && a.closest('.player'), e = pl;
+    while (e && e.previousElementSibling && e.previousElementSibling.classList.contains('player')) e = e.previousElementSibling;
+    e = e && e.previousElementSibling;
+    if (e && e.classList.contains('pa')) return [].indexOf.call(secs, e);
+    if (!G.duration) return -1;
+    for (var j = secs.length - 1; j >= 0; j--) if (estSeg(id, j, G.duration).t0 + 1 <= t) return j;
+    return 0;
+  }
+  function follow() {
+    var on = cur === 'read' && gInfo && gInfo.id === readId && G._src && (G.currentTime > 0 || !G.paused);
+    var i = on ? nowIdx(readId, G._src, G.currentTime) : -1;
+    if (i === hiIdx && (i < 0 || document.getElementById('p' + i) === app.querySelector('.pa.now'))) return;
+    hiIdx = i;
+    app.querySelectorAll('.pa.now').forEach(function (x) { x.classList.remove('now'); });
+    var el = i >= 0 && document.getElementById('p' + i); if (!el) return;
+    el.classList.add('now');
+    if (!G.paused && Date.now() - userAt > 6000) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
   // in-page players are drawn by us and drive the shared audio
   function syncPlayers() {
     document.querySelectorAll('.cp').forEach(function (cp) {
@@ -290,12 +316,12 @@
         save(); var o = favIdx(id, i) >= 0; b.setAttribute('aria-pressed', String(o)); b.textContent = o ? '★' : '☆'; };
       sec.appendChild(b);
     });
-    buildPlayers(id);
+    buildPlayers(id); hiIdx = -1;
     var y = st.pos[id] || 0, jt = jumpTo; jumpTo = null;
     requestAnimationFrame(function () {
       if (jt != null && document.getElementById('p' + jt)) { var el = document.getElementById('p' + jt); el.scrollIntoView({ block: 'center' }); el.classList.add('flash'); setTimeout(function () { el.classList.remove('flash'); }, 2200); }
       else { window.scrollTo(0, y); if (y > 300) toast('از جایی که مانده بودید ادامه دهید'); }
-      onScroll();
+      onScroll(); follow();
     });
   }
   var posT;
