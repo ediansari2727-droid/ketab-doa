@@ -283,3 +283,4 @@ body.has-mini{padding-bottom:calc(8.4rem + env(safe-area-inset-bottom,0px))}
 .ar-i{display:block;max-width:100%;text-align:center;margin:.35rem 0 .1rem}
 .ar,.q,.intro-ar{text-align:center;text-align-last:center}
 @media (max-width:600px){.ar,.q{text-align:center}}
+.fv .pa.tap{cursor:pointer}
