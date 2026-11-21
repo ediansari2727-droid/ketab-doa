@@ -17,7 +17,7 @@ jobs:
       - name: Prepare web files
         run: |
           mkdir -p android-app/www
-          cp -r index.html app.css app.js content.js times.js sortable.min.js fonts icons audio android-app/www/
+          cp -r index.html app.css app.js content.js times.js oghat.js sortable.min.js fonts icons audio android-app/www/
       - name: Install and add Android
         working-directory: android-app
         run: |
@@ -28,7 +28,7 @@ jobs:
         working-directory: android-app/android
         run: |
           M=app/src/main/AndroidManifest.xml
-          sed -i 's#</manifest>#<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/><uses-permission android:name="android.permission.USE_EXACT_ALARM"/><uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/><uses-permission android:name="android.permission.WAKE_LOCK"/><uses-permission android:name="android.permission.VIBRATE"/></manifest>#' $M
+          sed -i 's#</manifest>#<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/><uses-permission android:name="android.permission.USE_EXACT_ALARM"/><uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/><uses-permission android:name="android.permission.WAKE_LOCK"/><uses-permission android:name="android.permission.VIBRATE"/><uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/></manifest>#' $M
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             R=app/src/main/res/mipmap-$d
             [ -d $R ] && for f in ic_launcher.png ic_launcher_round.png ic_launcher_foreground.png; do cp ../../icons/icon-512.png $R/$f; done

@@ -307,3 +307,20 @@ body.has-mini{padding-bottom:calc(8.4rem + env(safe-area-inset-bottom,0px))}
 .n4-g{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
 .n4-b{border:1px solid var(--rule);background:var(--paper);border-radius:12px;padding:.7rem .4rem;font-size:.95rem;display:flex;gap:.4rem;align-items:center;justify-content:center}
 .n4-b[aria-pressed="true"]{background:var(--green);color:#fff;border-color:var(--green)}
+/* اوقات شرعی و قبله */
+.prcard{margin-top:.8rem}
+.prcard .cd{font-variant-numeric:tabular-nums;color:var(--cc);font-size:1.05rem;direction:ltr}
+.muted{color:var(--muted);font-size:.88rem}
+.ogh-next{text-align:center;margin-top:1rem}
+.ogh-next .big{font-size:2.4rem;font-weight:800;color:var(--acc);direction:ltr;font-variant-numeric:tabular-nums;line-height:1.5}
+.ogh-r b{font-size:1.1rem;font-variant-numeric:tabular-nums}
+.ogh-r.past{opacity:.55}
+.ogh-r.nx{background:var(--teal-t);border-radius:10px;padding-inline:.6rem;opacity:1}
+.ogh-r.nx b,.ogh-r.nx span{color:var(--teal);font-weight:800}
+.box select.pb{border:1px solid var(--rule);background:var(--chip);border-radius:10px;padding:.3rem .4rem;font-size:.85rem}
+.qib{text-align:center}
+.dial{width:220px;height:220px;margin:.4rem auto 1rem;border-radius:50%;border:2px solid var(--rule);background:radial-gradient(circle,var(--paper) 60%,var(--chip));position:relative;transition:transform .15s linear}
+.dial .nn{position:absolute;top:4px;left:50%;transform:translateX(-50%);font-weight:800;color:var(--ruby,#B23A3A)}
+.dial .needle{position:absolute;left:50%;top:50%;width:4px;height:96px;margin-left:-2px;margin-top:-96px;background:linear-gradient(var(--gold),var(--acc));border-radius:4px;transform-origin:50% 100%}
+.dial .needle b{position:absolute;top:-1.6rem;left:50%;transform:translateX(-50%);font-size:1.5rem;font-style:normal}
+#qstat.ok{color:var(--green);font-weight:800}

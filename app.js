@@ -260,6 +260,7 @@
       (next ? '<a class="btn" style="margin-top:.4rem;padding:.4rem 1rem;font-size:.88rem" href="#/d/' + next + '">ادامه: ' + BY[next].title + ' ←</a>' : '') + '</div></div>';
     if (tot && n === tot) h += '<div class="allgood">الحمدلله؛ همهٔ دعاهای امروز خوانده شد ✓</div>';
     else if (miss) h += '<div class="banner">⏰ <span><b>یادآور ' + fa(miss) + ':</b> هنوز ' + fa(tot - n) + ' دعا از برنامهٔ امروز مانده است.</span></div>';
+    h += prCard();
     h += '<a class="card c-amber ostcard" href="#/d/ostad" style="grid-template-columns:auto 1fr"><span class="badge">★</span><span class="t"><strong>اعمال استاد</strong><small>دعا، نماز، صدقه و روزه؛ با زمان هر مورد در فایل صوتی و اعتبارش</small></span></a>';
     h += '<a class="searchbar" href="#/search">⌕ جستجو در همهٔ دعاها و ترجمه‌ها</a>';
     h += '<div class="sec-h"><h2>فهرست دعاها</h2><button class="chipbtn" id="edit" aria-pressed="' + editing + '">' + (editing ? 'تمام ✓' : '↕ ترتیب و برنامه') + '</button></div>';
@@ -616,6 +617,7 @@
         list.push({ id: 1000 + d * 10 + i, title: 'وقت دعای روزانه', body: d === 0 ? remindBody() : 'برنامهٔ دعای امروز را باز کنید',
           schedule: { at: x, allowWhileIdle: true }, smallIcon: 'ic_stat_doa', iconColor: '#B48A2C' });
       });
+      prList(7).slice(0, 60).forEach(function (x, j) { list.push({ id: 3000 + j, title: x.title, body: x.body, schedule: { at: new Date(x.at), allowWhileIdle: true }, smallIcon: 'ic_stat_doa', iconColor: '#B48A2C', extra: { url: '#/oghat' } }); });
       if (list.length) return LN.schedule({ notifications: list });
     }).catch(function () {});
   }
@@ -677,7 +679,7 @@
   // the service worker can't read localStorage: give it a copy of what it needs
   function mirrorToSW() {
     if (!('caches' in window) || location.protocol === 'file:') return;
-    var m = { times: remTimes(), day: today(), left: planIds().length - countDone(), notified: st.notified[today()] || [], body: remindBody() };
+    var m = { times: remTimes(), day: today(), left: planIds().length - countDone(), notified: st.notified[today()] || [], body: remindBody(), pr: typeof prList === 'function' && O ? prList(3).map(function (x) { return { at: x.at, title: x.title, body: x.body }; }) : [] };
     caches.open('doa-state').then(function (c) { c.put('state.json', new Response(JSON.stringify(m), { headers: { 'content-type': 'application/json' } })); }).catch(function () {});
   }
   function ics() {
@@ -697,6 +699,176 @@
     toast('فایل تقویم دانلود شد؛ آن را باز کنید و «ذخیره» بزنید');
   }
 
+  // ---------- اوقات شرعی، یادآور نماز، قبله‌نما ----------
+  var O = window.OGHAT;
+  var PK = ['fajr', 'sunrise', 'dhuhr', 'sunset', 'maghrib', 'midnight'];
+  var PN = { fajr: 'اذان صبح', sunrise: 'طلوع آفتاب', dhuhr: 'اذان ظهر', sunset: 'غروب آفتاب', maghrib: 'اذان مغرب', midnight: 'نیمه‌شب شرعی' };
+  def('loc', { n: 'تهران', lat: 35.6892, lng: 51.3890, tz: 3.5, gps: false });
+  def('pr', {}); PK.forEach(function (k) { if (!st.pr[k]) st.pr[k] = { on: false, b: 0 }; });
+  function locTz() { return st.loc.gps ? -new Date().getTimezoneOffset() / 60 : st.loc.tz; }
+  function hmAt(ms) { var d = new Date(ms + locTz() * 36e5); return '\u2066' + fa(String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0')) + '\u2069'; }
+  function ymdAt(off) { var d = new Date(Date.now() + locTz() * 36e5 + off * 864e5); return [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()]; }
+  function dayTimes(off) { if (!O) return null; var y = ymdAt(off); return O.times(y[0], y[1], y[2], st.loc.lat, st.loc.lng); }
+  // رویدادهای پیش رو (دیروز تا چند روز بعد) به ترتیب زمان
+  function upcoming(days) {
+    var out = [], now = Date.now();
+    for (var o = -1; o <= days; o++) { var t = dayTimes(o); if (t) PK.forEach(function (k) { if (t[k] > now) out.push({ k: k, t: t[k] }); }); }
+    return out.sort(function (a, b) { return a.t - b.t; });
+  }
+  function dur(ms) {
+    var s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+    return h ? fa(h) + ' ساعت و ' + fa(m) + ' دقیقه' : m ? fa(m) + ' دقیقه' : fa(s) + ' ثانیه';
+  }
+  function hhmmss(ms) { var s = Math.max(0, Math.floor(ms / 1000)); return fa(String(Math.floor(s / 3600)).padStart(2, '0') + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0')); }
+  function prCard() {
+    if (!O) return '';
+    var n = upcoming(1)[0]; if (!n) return '';
+    return '<a class="card c-teal prcard" href="#/oghat" style="grid-template-columns:auto 1fr auto"><span class="badge">🕌</span><span class="t"><strong>' + PN[n.k] + '، ساعت ' + hmAt(n.t) + '</strong><small>' + esc(st.loc.n) + ' · اوقات شرعی و قبله</small></span><b class="cd" data-cd="' + n.t + '">' + hhmmss(n.t - Date.now()) + '</b></a>';
+  }
+  setInterval(function () {
+    var els = document.querySelectorAll('[data-cd]'); if (!els.length) return;
+    var stale = false;
+    els.forEach(function (e) { var left = +e.dataset.cd - Date.now(); if (left <= 0) stale = true; e.textContent = e.dataset.f === 'w' ? dur(left) : hhmmss(left); });
+    if (stale && (cur === 'home' || cur === 'oghat')) render();
+  }, 1000);
+
+  var compass = null, heading = null;
+  function oghat() {
+    var t = dayTimes(0), up = upcoming(1), n = up[0], now = Date.now();
+    var h = '<header class="rbar"><a class="ib" href="#/" aria-label="بازگشت">→</a><strong style="flex:1">اوقات شرعی و قبله</strong></header><div class="wrap">';
+    if (!t) { app.innerHTML = h + '<p>محاسبه در دسترس نیست.</p></div>'; return; }
+    h += '<div class="box ogh-next">' + (n ? '<div class="muted">تا ' + PN[n.k] + ' (' + hmAt(n.t) + ')</div><div class="big" data-cd="' + n.t + '">' + hhmmss(n.t - now) + '</div>' : '') +
+      '<div class="muted">' + esc(st.loc.n) + (st.loc.gps ? ' (مکان گوشی)' : '') + ' · ' + dates() + '</div></div>';
+    h += '<div class="box"><h2>اوقات امروز</h2>' + PK.map(function (k) {
+      var past = t[k] <= now, nx = n && n.k === k && Math.abs(n.t - t[k]) < 6e4;
+      return '<div class="row ogh-r' + (nx ? ' nx' : '') + (past ? ' past' : '') + '"><span>' + PN[k] + '</span><b>' + (isNaN(t[k]) ? '—' : hmAt(t[k])) + '</b></div>';
+    }).join('') + '<p class="note2">روش محاسبه: مؤسسهٔ ژئوفیزیک دانشگاه تهران (صبح ۱۷٫۷ درجه، مغرب ۴٫۵ درجه زیر افق؛ نیمه‌شب = میانهٔ غروب تا اذان صبح). بدون اینترنت حساب می‌شود. ممکن است با تقویم رسمی تا یکی دو دقیقه فرق کند؛ برای احتیاط، چند دقیقه صبر کنید.</p></div>';
+    h += '<div class="box"><h2>مکان</h2><div class="row"><label for="city">شهر</label><select id="city"><option value="">' + (st.loc.gps ? 'مکان گوشی' : '—') + '</option>' +
+      O.CITIES.map(function (c, i) { return '<option value="' + i + '"' + (!st.loc.gps && c[0] === st.loc.n ? ' selected' : '') + '>' + c[0] + '</option>'; }).join('') + '</select></div>' +
+      ('geolocation' in navigator ? '<button class="btn ghost wide" id="gps">📍 استفاده از مکان فعلی گوشی</button>' : '') +
+      '<p class="note2">مکان فقط روی همین گوشی ذخیره می‌شود و به جایی فرستاده نمی‌شود.</p></div>';
+    var perm1 = perm();
+    h += '<div class="box"><h2>یادآور نماز</h2>' + PK.map(function (k) {
+      var r = st.pr[k];
+      return '<div class="row"><span style="flex:1">' + PN[k] + '</span><select class="pb" data-k="' + k + '" aria-label="زمان یادآور">' +
+        [[0, 'سر وقت'], [5, '۵ دقیقه قبل'], [10, '۱۰ دقیقه قبل'], [15, '۱۵ دقیقه قبل'], [30, '۳۰ دقیقه قبل']].map(function (o) { return '<option value="' + o[0] + '"' + (r.b === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') +
+        '</select><button class="sw ps" data-k="' + k + '" role="switch" aria-checked="' + r.on + '" aria-label="یادآور ' + PN[k] + '"></button></div>';
+    }).join('') +
+      (perm1 === 'granted' || perm1 === 'unsupported' ? '' : '<button class="btn" id="pperm">اجازهٔ اعلان</button>') +
+      (LN ? '<p class="note2"><b>آلارم:</b> در نسخهٔ APK، یادآورها برای هفت روز آینده در خود گوشی تنظیم می‌شوند و حتی وقتی برنامه بسته است می‌آیند. هر بار برنامه را باز کنید، دوباره برای هفت روز بعد تنظیم می‌شوند.</p>' :
+        '<p class="note2"><b>صادقانه:</b> در نسخهٔ وبی (نصب از کروم)، اعلان فقط وقتی مطمئن است که برنامه باز یا در پس‌زمینهٔ تازه باشد. وقتی برنامه بسته است، اندروید ممکن است اعلان را دیر بدهد یا اصلاً ندهد. برای یادآور مطمئن یکی از این دو را انتخاب کنید:</p>' +
+        '<button class="btn wide" id="pics">⏰ افزودن اوقات ۳۰ روز آینده به تقویم گوشی</button>' +
+        '<p class="note2">برای هر نمازی که کلیدش روشن است، با همان فاصلهٔ انتخابی، رویداد با هشدار ساخته می‌شود. بعد از ۳۰ روز دوباره این دکمه را بزنید. راه دیگر: نسخهٔ APK که آلارم واقعی دارد.</p>') + '</div>';
+    var q = O.qibla(st.loc.lat, st.loc.lng);
+    h += '<div class="box"><h2>قبله‌نما</h2><div class="qib"><div class="dial" id="dial"><span class="nn">ش</span><i class="needle" id="needle" style="transform:rotate(' + q + 'deg)"><b>🕋</b></i></div>' +
+      '<p>جهت قبله: <b>' + fa(Math.round(q)) + ' درجه</b> از شمال (ساعتگرد) · فاصله تا مکه: ' + fa(Math.round(O.distKm(st.loc.lat, st.loc.lng))) + ' کیلومتر</p>' +
+      '<p id="qstat" class="muted">' + (compass ? 'گوشی را صاف و افقی نگه دارید.' : 'بدون قطب‌نما: «ش» بالای دایره رو به شمال است.') + '</p>' +
+      ('DeviceOrientationEvent' in window ? '<button class="btn ghost wide" id="qon">' + (compass ? 'خاموش کردن قطب‌نما' : '🧭 روشن کردن قطب‌نمای گوشی') + '</button>' : '') +
+      '<p class="note2">قطب‌نمای گوشی کنار آهن، آهن‌ربا، قاب مغناطیسی یا وسایل برقی خطا می‌کند. اگر عدد ثابت نیست، گوشی را چند بار به شکل عدد ۸ در هوا بچرخانید.</p></div></div>';
+    h += '</div>';
+    app.innerHTML = h;
+    document.getElementById('city').onchange = function (e) { var c = O.CITIES[+e.target.value]; if (!c) return; st.loc = { n: c[0], lat: c[1], lng: c[2], tz: c[3], gps: false }; save(); prSchedule(); oghat(); };
+    var gb = document.getElementById('gps'); if (gb) gb.onclick = function () {
+      toast('در حال یافتن مکان…');
+      navigator.geolocation.getCurrentPosition(function (p) {
+        var la = +p.coords.latitude.toFixed(4), lo = +p.coords.longitude.toFixed(4), best = null, bd = 1e9;
+        O.CITIES.forEach(function (c) { var d = Math.hypot(c[1] - la, (c[2] - lo) * Math.cos(la * Math.PI / 180)); if (d < bd) { bd = d; best = c; } });
+        st.loc = { n: bd < 0.5 ? 'نزدیک ' + best[0] : 'مکان گوشی', lat: la, lng: lo, tz: locTz(), gps: true }; save(); prSchedule(); oghat(); toast('مکان ذخیره شد');
+      }, function () { toast('مکان پیدا نشد؛ GPS و اجازهٔ مکان را روشن کنید یا شهر را انتخاب کنید'); }, { enableHighAccuracy: false, timeout: 20000, maximumAge: 6e5 });
+    };
+    app.querySelectorAll('.ps').forEach(function (b) { b.onclick = function () {
+      var r = st.pr[b.dataset.k]; r.on = !r.on; save();
+      if (r.on && perm() === 'default') askPerm(); prSchedule(); oghat();
+    }; });
+    app.querySelectorAll('.pb').forEach(function (s) { s.onchange = function () { st.pr[s.dataset.k].b = +s.value; save(); prSchedule(); toast('ذخیره شد'); }; });
+    var pp = document.getElementById('pperm'); if (pp) pp.onclick = askPerm;
+    var pi = document.getElementById('pics'); if (pi) pi.onclick = prIcs;
+    var qb = document.getElementById('qon'); if (qb) qb.onclick = function () { if (compass) { compassOff(); oghat(); } else compassOn(); };
+    if (compass) drawNeedle();
+  }
+  function askPerm() {
+    if (LN) { LN.requestPermissions().then(function (r) { nativePerm = r.display; nativeSchedule(); if (cur === 'oghat') oghat(); }); return; }
+    if ('Notification' in window) Notification.requestPermission().then(function () { registerPeriodic(); schedule(); prSchedule(); if (cur === 'oghat') oghat(); });
+  }
+  function drawNeedle() {
+    var nd = document.getElementById('needle'), dl = document.getElementById('dial'); if (!nd || !O) return;
+    var q = O.qibla(st.loc.lat, st.loc.lng), hd = heading == null ? 0 : heading;
+    dl.style.transform = 'rotate(' + (-hd) + 'deg)';
+    var diff = ((q - hd) % 360 + 540) % 360 - 180, qs = document.getElementById('qstat');
+    if (qs && heading != null) qs.textContent = Math.abs(diff) < 5 ? '✓ رو به قبله هستید' : (diff > 0 ? 'به راست بچرخید: ' : 'به چپ بچرخید: ') + fa(Math.round(Math.abs(diff))) + ' درجه';
+    if (qs) qs.classList.toggle('ok', heading != null && Math.abs(diff) < 5);
+  }
+  function onOri(e) {
+    var hd = null;
+    if (typeof e.webkitCompassHeading === 'number') hd = e.webkitCompassHeading;
+    else if (e.absolute && e.alpha != null) hd = (360 - e.alpha) % 360;
+    if (hd == null) return;
+    var sc = screen.orientation && screen.orientation.angle || 0; hd = (hd + sc) % 360;
+    heading = heading == null ? hd : heading + ((((hd - heading) % 360) + 540) % 360 - 180) * 0.25;
+    heading = (heading + 360) % 360; drawNeedle();
+  }
+  function compassOn() {
+    var go = function () {
+      compass = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
+      addEventListener(compass, onOri); oghat();
+      setTimeout(function () { if (compass && heading == null) { var qs = document.getElementById('qstat'); if (qs) qs.textContent = 'این گوشی یا مرورگر قطب‌نما در اختیار برنامه نمی‌گذارد. از عدد درجه و یک قطب‌نمای دیگر کمک بگیرید.'; } }, 2500);
+    };
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')
+      DeviceOrientationEvent.requestPermission().then(function (r) { if (r !== 'granted') toast('اجازهٔ حسگر داده نشد'); go(); }).catch(go);
+    else go();
+  }
+  function compassOff() { if (compass) removeEventListener(compass, onOri); compass = null; heading = null; }
+
+  // یادآورهای نماز: فهرست زمان‌های اعلان در چند روز آینده
+  function prList(days) {
+    return upcoming(days).filter(function (e) { return st.pr[e.k].on; }).map(function (e) {
+      var b = st.pr[e.k].b;
+      return { k: e.k, at: e.t - b * 6e4, t: e.t, title: PN[e.k] + '، ساعت ' + hmAt(e.t), body: b ? fa(b) + ' دقیقهٔ دیگر ' + PN[e.k] + ' است (' + st.loc.n + ')' : 'وقت ' + PN[e.k] + ' است (' + st.loc.n + ')' };
+    }).filter(function (x) { return x.at > Date.now(); });
+  }
+  var prTimer = null;
+  function prSchedule() {
+    clearTimeout(prTimer); mirrorToSW();
+    if (LN) { nativeSchedule(); return; }
+    var nx = prList(2)[0]; if (!nx) return;
+    prTimer = setTimeout(function () {
+      if (perm() === 'granted') prNotify(nx);
+      setTimeout(prSchedule, 2000);
+    }, Math.min(nx.at - Date.now(), 2147483000));
+    prTrigger();
+  }
+  function prNotify(x) {
+    var k = 'p' + x.at; if (st.notified[k]) return; st.notified[k] = 1;
+    Object.keys(st.notified).forEach(function (q) { if (/^p\d+$/.test(q) && +q.slice(1) < Date.now() - 2 * 864e5) delete st.notified[q]; });
+    save();
+    var opt = { body: x.body, icon: 'icons/icon-192.png', badge: 'icons/badge.png', tag: 'doa-pr-' + x.at, dir: 'rtl', lang: 'fa', vibrate: [300, 120, 300], requireInteraction: x.k !== 'sunrise' && x.k !== 'sunset', data: { url: './#/oghat' } };
+    if (navigator.serviceWorker && navigator.serviceWorker.ready) navigator.serviceWorker.ready.then(function (r) { r.showNotification(x.title, opt); }).catch(function () { try { new Notification(x.title, opt); } catch (e) {} });
+    else try { new Notification(x.title, opt); } catch (e) {}
+  }
+  function prTrigger() {
+    if (perm() !== 'granted' || !('showTrigger' in Notification.prototype) || !window.TimestampTrigger || !navigator.serviceWorker) return;
+    navigator.serviceWorker.ready.then(function (reg) {
+      reg.getNotifications({ includeTriggered: true }).then(function (ns) { ns.forEach(function (n) { if (n.tag && n.tag.indexOf('doa-pr-') === 0) n.close(); }); });
+      prList(7).forEach(function (x) { reg.showNotification(x.title, { body: x.body, tag: 'doa-pr-' + x.at, icon: 'icons/icon-192.png', showTrigger: new TimestampTrigger(x.at), data: { url: './#/oghat' } }); });
+    }).catch(function () {});
+  }
+  function prIcs() {
+    var on = PK.filter(function (k) { return st.pr[k].on; });
+    if (!on.length) { toast('اول کلید یادآور دست‌کم یک نماز را روشن کنید'); return; }
+    var stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+    var u = function (ms) { return new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''); };
+    var L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ketab-doa//oghat//fa', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+    for (var o = 0; o < 30; o++) { var t = dayTimes(o); on.forEach(function (k) {
+      if (isNaN(t[k]) || t[k] < Date.now()) return; var b = st.pr[k].b;
+      L.push('BEGIN:VEVENT', 'UID:oghat-' + k + '-' + u(t[k]) + '@ketab-doa', 'DTSTAMP:' + stamp, 'DTSTART:' + u(t[k]), 'DURATION:PT10M',
+        'SUMMARY:' + PN[k] + ' (' + st.loc.n.replace(/[,;\\]/g, ' ') + ')', 'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + PN[k], 'TRIGGER:-PT' + b + 'M', 'END:VALARM', 'END:VEVENT');
+    }); }
+    L.push('END:VCALENDAR');
+    var blob = new Blob([L.join('\r\n')], { type: 'text/calendar;charset=utf-8' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'oghat-sharei.ics'; document.body.appendChild(a); a.click(); a.remove();
+    toast('فایل تقویم دانلود شد؛ آن را باز کنید و «ذخیره» بزنید');
+  }
+
   // ---------- router ----------
   function render() {
     var hsh = location.hash || '#/', m;
@@ -704,12 +876,14 @@
     var reading = !!(m = hsh.match(/^#\/d\/(\w+)/));
     document.body.classList.toggle('reading', reading);
     if (!reading) readId = null;
+    if (hsh !== '#/oghat' && compass) compassOff();
     if (reading) { cur = 'read'; reader(m[1]); }
     else if (hsh === '#/tasbih') { cur = 'tasbih'; tasbih(); }
     else if (hsh === '#/fav') { cur = 'fav'; favs(); }
     else if (hsh === '#/search') { cur = 'search'; search(); }
     else if (hsh === '#/history') { cur = 'history'; history(); }
     else if (hsh === '#/settings') { cur = 'settings'; settings(); }
+    else if (hsh === '#/oghat') { cur = 'oghat'; oghat(); }
     else { cur = 'home'; home(); }
     document.querySelectorAll('#tabs a').forEach(function (a) { a.classList.toggle('on', a.dataset.t === cur); });
     wake();
@@ -732,4 +906,6 @@
     navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.go) location.hash = e.data.go; });
   } else schedule();
   checkMissed();
+  prSchedule();
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') prSchedule(); });
 })();
