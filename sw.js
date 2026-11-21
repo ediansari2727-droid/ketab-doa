@@ -1,6 +1,6 @@
 // Offline cache + daily reminder for کتاب دعای روزانه
-var V = 'doa-v12';
-var CORE = ['./', 'index.html', 'app.css', 'app.js', 'content.js', 'sortable.min.js', 'manifest.webmanifest',
+var V = 'doa-v13';
+var CORE = ['./', 'index.html', 'app.css', 'app.js', 'content.js', 'times.js', 'sortable.min.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/badge.png',
   'fonts/amiri-arabic-400-normal.woff2', 'fonts/amiri-arabic-700-normal.woff2', 'fonts/vazirmatn-arabic-400-normal.woff2',
   'fonts/vazirmatn-arabic-700-normal.woff2', 'fonts/scheherazade-new-arabic-400-normal.woff2', 'fonts/scheherazade-new-arabic-700-normal.woff2',

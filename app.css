@@ -234,6 +234,9 @@ button{cursor:pointer}
 .favbar .lp{display:inline-flex;gap:.4rem;align-items:center;font-size:.88rem;color:var(--muted);margin-inline-start:auto}
 .fv{background:var(--paper);border:1.5px solid color-mix(in srgb,var(--cc) 45%,transparent);border-radius:18px;padding:.8rem;margin-bottom:.9rem;display:grid;gap:.6rem}
 .fv.playing{box-shadow:0 0 0 3px var(--gold)}
+.ch-b .pa{transition:background-color .4s,box-shadow .4s}
+.ch-b .pa{scroll-margin-top:70px}
+.ch-b .pa.now{background:color-mix(in srgb,var(--gold) 18%,var(--ct));box-shadow:0 0 0 3px var(--gold)}
 .fv-h{display:flex;justify-content:space-between;align-items:center;gap:.5rem}
 .fv-h a{color:var(--cc);font-weight:700;text-decoration:none}
 .fv .ib{width:2rem;height:2rem;font-size:.85rem}

@@ -136,7 +136,7 @@
     mini();
   }
   function gStop() { clearInterval(segTimer); queue = null; G.pause(); gInfo = null; G.loop = false; clearTimeout(sleepT); sleepAt = 0; mini(); syncPlayers();
-    document.querySelectorAll('.fv.playing').forEach(function (x) { x.classList.remove('playing'); }); }
+    document.querySelectorAll('.fv.playing').forEach(function (x) { x.classList.remove('playing'); }); follow(); }
   if ('mediaSession' in navigator) try {
     navigator.mediaSession.setActionHandler('play', function () { G.play(); });
     navigator.mediaSession.setActionHandler('pause', function () { G.pause(); });
@@ -176,7 +176,33 @@
     else if (b.id === 'm-go' && gInfo && gInfo.id) location.hash = gInfo.fav ? '#/fav' : '#/d/' + gInfo.id;
     mini(); syncPlayers();
   });
-  ['play', 'pause', 'timeupdate', 'loadedmetadata', 'ended'].forEach(function (ev) { G.addEventListener(ev, function () { mini(); syncPlayers(); }); });
+  ['play', 'pause', 'timeupdate', 'loadedmetadata', 'ended'].forEach(function (ev) { G.addEventListener(ev, function () { mini(); syncPlayers(); follow(); }); });
+  // highlight the passage being recited on the open dua page, and keep it in view
+  var hiIdx = -1, userAt = 0;
+  ['touchstart', 'wheel', 'keydown'].forEach(function (ev) { addEventListener(ev, function () { userAt = Date.now(); }, { passive: true }); });
+  function nowIdx(id, src, t) {
+    var secs = app.querySelectorAll('.ch-b .pa'); if (!secs.length) return -1;
+    var T = (window.TIMES || {})[id];
+    if (T && src === audioOf(id)) { var k = -1; for (var i = 0; i < T.length; i++) if (T[i] != null && T[i] <= t + 0.3) k = i; return k; }
+    if (secs.length === 1) return 0;
+    var a = app.querySelector('.cp[data-src="' + src + '"]'), pl = a && a.closest('.player'), e = pl;
+    while (e && e.previousElementSibling && e.previousElementSibling.classList.contains('player')) e = e.previousElementSibling;
+    e = e && e.previousElementSibling;
+    if (e && e.classList.contains('pa')) return [].indexOf.call(secs, e);
+    if (!G.duration) return -1;
+    for (var j = secs.length - 1; j >= 0; j--) if (estSeg(id, j, G.duration).t0 + 1 <= t) return j;
+    return 0;
+  }
+  function follow() {
+    var on = cur === 'read' && gInfo && gInfo.id === readId && G._src && (G.currentTime > 0 || !G.paused);
+    var i = on ? nowIdx(readId, G._src, G.currentTime) : -1;
+    if (i === hiIdx && (i < 0 || document.getElementById('p' + i) === app.querySelector('.pa.now'))) return;
+    hiIdx = i;
+    app.querySelectorAll('.pa.now').forEach(function (x) { x.classList.remove('now'); });
+    var el = i >= 0 && document.getElementById('p' + i); if (!el) return;
+    el.classList.add('now');
+    if (!G.paused && Date.now() - userAt > 6000) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
   // in-page players are drawn by us and drive the shared audio
   function syncPlayers() {
     document.querySelectorAll('.cp').forEach(function (cp) {
@@ -292,12 +318,12 @@
         save(); var o = favIdx(id, i) >= 0; b.setAttribute('aria-pressed', String(o)); b.textContent = o ? '★' : '☆'; };
       sec.appendChild(b);
     });
-    buildPlayers(id); extras(id);
+    buildPlayers(id); extras(id); hiIdx = -1;
     var y = st.pos[id] || 0, jt = jumpTo; jumpTo = null;
     requestAnimationFrame(function () {
       if (jt != null && document.getElementById('p' + jt)) { var el = document.getElementById('p' + jt); el.scrollIntoView({ block: 'center' }); el.classList.add('flash'); setTimeout(function () { el.classList.remove('flash'); }, 2200); }
       else { window.scrollTo(0, y); if (y > 300) toast('از جایی که مانده بودید ادامه دهید'); }
-      onScroll();
+      onScroll(); follow();
     });
   }
   var posT;
@@ -394,7 +420,8 @@
   // where a passage sits in the recitation: exact times if known, else a guess from text length
   function arLen(el) { return el ? (el.textContent.match(/[\u0621-\u064A]/g) || []).length : 0; }
   function estSeg(id, i, dur) {
-    var T = (window.TIMES || {})[id]; if (T && T[i] != null) return { t0: T[i], t1: T[i + 1] != null ? T[i + 1] : dur };
+    var T = (window.TIMES || {})[id];
+    if (T) { var e = dur; for (var n = i + 1; n < T.length; n++) if (T[n] != null) { e = T[n]; break; } return T[i] != null ? { t0: T[i], t1: e } : { t0: e, t1: e, miss: true }; }
     var b = parsed(id), w = [arLen(b.querySelector('.intro-ar'))];
     b.querySelectorAll('.pa').forEach(function (p) { w.push(arLen(p.querySelector('.ar,.q'))); });
     var tot = w.reduce(function (a, x) { return a + x; }, 0) || 1, a = 0;
@@ -405,7 +432,7 @@
     clearInterval(segTimer);
     var src = audioOf(f.id); if (!src) { if (after) after(); return; }
     if (f.t1 == null) {
-      var go = function () { var e = estSeg(f.id, f.i, G.duration); playSeg({ id: f.id, i: f.i, t0: e.t0, t1: e.t1 }, after); };
+      var go = function () { var e = estSeg(f.id, f.i, G.duration); if (e.miss) { toast('قاری این بند را نخوانده است'); if (after) after(); return; } playSeg({ id: f.id, i: f.i, t0: e.t0, t1: e.t1 }, after); };
       if (G._src === src && G.readyState >= 1) go(); else { if (G._src !== src) { G._src = src; G.src = src; } G.addEventListener('loadedmetadata', go, { once: true }); G.load(); }
       return;
     }
@@ -437,7 +464,7 @@
       var c = sec.cloneNode(true); c.querySelectorAll('.star').forEach(function (x) { x.remove(); });
       var hasA = !!audioOf(f.id), segTxt = f.t1 != null ? mmss(f.t0) + ' تا ' + mmss(f.t1) : '';
       h += '<div class="fv c-' + d.color + '" data-k="' + f.id + ':' + f.i + '"><div class="fv-h"><a href="#/d/' + f.id + '">' + d.title + '</a><button class="ib fx" data-k="' + k + '" aria-label="حذف از منتخب‌ها">✕</button></div>' + c.outerHTML +
-        (hasA ? '<div class="fv-a">' + ('<button class="btn fp" data-k="' + k + '">▶ پخش از این بند <small>(' + (segTxt || 'جای تقریبی') + ')</small></button>') +
+        (hasA ? '<div class="fv-a">' + ('<button class="btn fp" data-k="' + k + '">▶ پخش از این بند <small>(' + (segTxt || ((window.TIMES || {})[f.id] ? 'خودکار' : 'جای تقریبی')) + ')</small></button>') +
         '<button class="btn ghost fe" data-k="' + k + '">' + (f.t1 != null ? 'ویرایش بخش صوت' : '⏱ تعیین بخش صوت') + '</button></div><div class="seged" id="se' + k + '" hidden></div>' : '<p class="hint">این دعا صوت ندارد.</p>') + '</div>';
     });
     h += '<p class="hint">ترتیب پخش همان ترتیب این فهرست است. روی هر بند بزنید تا پخش از همان‌جا شروع شود و بندهای بعدی هم پشت سر هم بیایند. برای حذف، ✕ را بزنید.</p></div>';
