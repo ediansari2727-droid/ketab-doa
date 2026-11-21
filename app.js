@@ -357,7 +357,8 @@
   // where a passage sits in the recitation: exact times if known, else a guess from text length
   function arLen(el) { return el ? (el.textContent.match(/[\u0621-\u064A]/g) || []).length : 0; }
   function estSeg(id, i, dur) {
-    var T = (window.TIMES || {})[id]; if (T && T[i] != null) return { t0: T[i], t1: T[i + 1] != null ? T[i + 1] : dur };
+    var T = (window.TIMES || {})[id];
+    if (T) { var e = dur; for (var n = i + 1; n < T.length; n++) if (T[n] != null) { e = T[n]; break; } return T[i] != null ? { t0: T[i], t1: e } : { t0: e, t1: e, miss: true }; }
     var b = parsed(id), w = [arLen(b.querySelector('.intro-ar'))];
     b.querySelectorAll('.pa').forEach(function (p) { w.push(arLen(p.querySelector('.ar,.q'))); });
     var tot = w.reduce(function (a, x) { return a + x; }, 0) || 1, a = 0;
@@ -368,7 +369,7 @@
     clearInterval(segTimer);
     var src = audioOf(f.id); if (!src) { if (after) after(); return; }
     if (f.t1 == null) {
-      var go = function () { var e = estSeg(f.id, f.i, G.duration); playSeg({ id: f.id, i: f.i, t0: e.t0, t1: e.t1 }, after); };
+      var go = function () { var e = estSeg(f.id, f.i, G.duration); if (e.miss) { toast('قاری این بند را نخوانده است'); if (after) after(); return; } playSeg({ id: f.id, i: f.i, t0: e.t0, t1: e.t1 }, after); };
       if (G._src === src && G.readyState >= 1) go(); else { if (G._src !== src) { G._src = src; G.src = src; } G.addEventListener('loadedmetadata', go, { once: true }); G.load(); }
       return;
     }
@@ -400,7 +401,7 @@
       var c = sec.cloneNode(true); c.querySelectorAll('.star').forEach(function (x) { x.remove(); });
       var hasA = !!audioOf(f.id), segTxt = f.t1 != null ? mmss(f.t0) + ' تا ' + mmss(f.t1) : '';
       h += '<div class="fv c-' + d.color + '" data-k="' + f.id + ':' + f.i + '"><div class="fv-h"><a href="#/d/' + f.id + '">' + d.title + '</a><button class="ib fx" data-k="' + k + '" aria-label="حذف از منتخب‌ها">✕</button></div>' + c.outerHTML +
-        (hasA ? '<div class="fv-a">' + ('<button class="btn fp" data-k="' + k + '">▶ پخش از این بند <small>(' + (segTxt || 'جای تقریبی') + ')</small></button>') +
+        (hasA ? '<div class="fv-a">' + ('<button class="btn fp" data-k="' + k + '">▶ پخش از این بند <small>(' + (segTxt || ((window.TIMES || {})[f.id] ? 'خودکار' : 'جای تقریبی')) + ')</small></button>') +
         '<button class="btn ghost fe" data-k="' + k + '">' + (f.t1 != null ? 'ویرایش بخش صوت' : '⏱ تعیین بخش صوت') + '</button></div><div class="seged" id="se' + k + '" hidden></div>' : '<p class="hint">این دعا صوت ندارد.</p>') + '</div>';
     });
     h += '<p class="hint">ترتیب پخش همان ترتیب این فهرست است. روی هر بند بزنید تا پخش از همان‌جا شروع شود و بندهای بعدی هم پشت سر هم بیایند. برای حذف، ✕ را بزنید.</p></div>';
