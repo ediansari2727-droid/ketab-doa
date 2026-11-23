@@ -3,7 +3,7 @@ import json, re, sys, html
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from sahifa_a import D as A; from sahifa_b import D as B; from sahifa_c import D as C; from sahifa_d import D as Dd; from sahifa_e import D as E; from sahifa_f import D as F; from sahifa_g import D as G
-import amal_content
+import amal_content, hefz_content
 S = {**A, **B, **C, **Dd, **E, **F, **G}
 FA = str.maketrans('0123456789', '۰۱۲۳۴۵۶۷۸۹')
 fn = lambda n: str(n).translate(FA)
@@ -23,7 +23,9 @@ note = ('<li><b>یازده دعای دیگر صحیفه (۶، ۷، ۸، ۱۷، �
         'برای قرائت دقیق، متن را با صوت همان دعا هم بشنوید. ترجمه‌ها تازه و جمله‌به‌جمله است.</li>'
         '<li><b>دعاهای استغفار صحیفه (۹، ۱۰، ۱۲، ۱۶، ۳۱، ۳۸، ۵۰، ۵۳):</b> به همان روش بالا؛ متن OpenITI، اعراب و ترجمهٔ تازهٔ جمله‌به‌جمله، و مقابلهٔ کلمه‌به‌کلمه با OpenITI.</li>'
         '<li><b>صوت دعاها:</b> فایل‌هایی که خودتان از duas.org فرستادید. دعاهای ۹، ۱۰، ۵۰ و ۵۳ هنوز صوت ندارند.</li>'
-        '<li><b>اعمال استاد:</b> از فهرستی که از دو فایل صوتی گوینده تهیه شد؛ زمان هر مورد، جای آن در فایل است. آیه‌های صدقه، اطعام و روزه (بقره ۱۸۳ و ۲۷۴، انسان ۸ و ۹) از همان متن KFGQPC است و ترجمه‌شان تازه است.</li>')
+        '<li><b>اعمال استاد:</b> از فهرستی که از دو فایل صوتی گوینده تهیه شد؛ زمان هر مورد، جای آن در فایل است. آیه‌های صدقه، اطعام و روزه (بقره ۱۸۳ و ۲۷۴، انسان ۸ و ۹) از همان متن KFGQPC است و ترجمه‌شان تازه است.</li>'
+        '<li><b>حفاظت و دادخواهی:</b> آیه‌ها (بقره ۱۳۷، آل عمران ۱۷۳، نحل ۹۸، رعد ۱۱، قمر ۱۰، غافر ۴۴، قصص ۲۱، اعراف ۸۹) از همان متن KFGQPC و کلمه‌به‌کلمه از آن برداشته شده؛ ترجمه‌ها تازه است. '
+        'متن دو حدیث «بسم الله الذی لا یضر…» و «اللهم احفظنی من بین یدی…» با نسخهٔ عربی سنن ابوداوود (۵۰۸۸، ۵۰۷۴)، ترمذی (۳۳۸۸) و ابن‌ماجه (۳۸۶۹، ۳۸۷۱) در مجموعهٔ hadith-api مقابله شد.</li>')
 src = dict(src); src['body'] = src['body'].replace('</ul>', note + '</ul>', 1)
 out.append(src)
 # passages the duas.org reciter skips (checked by speech recognition + listening, 2026-11-20)
@@ -43,5 +45,6 @@ for d in out:
         secs[k] = secs[k].replace('</section>', '<p class="miss">🔇 ' + msg + '</p></section>', 1)
         d['body'] = '<section class="pa">'.join(secs)
 out = amal_content.apply(out)
+out = hefz_content.apply(out)
 open(os.path.join(ROOT, 'content.js'), 'w').write('window.DUAS=' + json.dumps(out, ensure_ascii=False) + ';')
 print(len(out), [d['id'] for d in out])

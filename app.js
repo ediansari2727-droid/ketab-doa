@@ -12,12 +12,16 @@
     namaz: { b: 'ن', when: 'هر وقت خواستید' },
     amal: { b: 'ص', when: 'هر روز، حتی اندک' },
     ostad: { b: '★', when: 'راهنما' },
+    hefz: { b: '⛨', when: 'راهنما' },
+    hesar: { b: 'ح', when: 'پس از نماز صبح', off: true },
+    dadkhahi: { b: 'د', when: 'هر روز', off: true },
     sources: { b: 'م', when: 'پیوست' }
   };
   var SW = { s6: 'صبح و شام', s7: 'هنگام گرفتاری', s8: 'روزانه', s9: 'استغفار', s10: 'استغفار', s12: 'استغفار', s16: 'استغفار', s31: 'توبه', s38: 'استغفار', s17: 'روزانه', s20: 'هر وقت خواستید', s21: 'هنگام اندوه', s23: 'روزانه', s29: 'هنگام تنگی روزی', s30: 'برای ادای وام', s49: 'هنگام آزار بدخواهان', s50: 'استغفار', s53: 'استغفار', s54: 'هنگام اندوه' };
   Object.keys(SW).forEach(function (k) { META[k] = { b: fa(k.slice(1)), when: SW[k], off: k !== 's6' }; });
   function defOn(id) { return !(META[id] && META[id].off); }
-  var DEFAULT_ORDER = DUAS.map(function (d) { return d.id; }).filter(function (id) { return id !== 'sources' && id !== 'ostad'; });
+  var GUIDE = { sources: 1, ostad: 1, hefz: 1 };
+  var DEFAULT_ORDER = DUAS.map(function (d) { return d.id; }).filter(function (id) { return !GUIDE[id]; });
   var KEY = 'doa-app-v1';
   var app = document.getElementById('app');
   var root = document.documentElement;
@@ -34,7 +38,7 @@
   def('tr', true); def('wake', false); def('theme', 'auto');
   def('rem', [{ t: '07:00', on: true }, { t: '21:30', on: true }]);
   def('notified', {}); def('pos', {});
-  def('tas', { i: 0, n: 0, goal: 33 }); def('fav', []); def('accent', 'lapis'); def('favLoop', false); def('n4', {});
+  def('tas', { i: 0, n: 0, goal: 33 }); def('fav', []); def('accent', 'lapis'); def('favLoop', false); def('n4', {}); def('cnt', {}); def('c40', { start: null, d: {} });
   // new duas added later go to the end of the user's order
   DEFAULT_ORDER.forEach(function (id) { if (st.order.indexOf(id) < 0) { st.order.push(id); st.plan[id] = defOn(id); } });
   st.order = st.order.filter(function (id) { return BY[id]; });
@@ -344,6 +348,7 @@
     h += todayCard();
     h += prCard();
     h += '<a class="card c-amber ostcard" href="#/d/ostad" style="grid-template-columns:auto 1fr"><span class="badge">★</span><span class="t"><strong>اعمال استاد</strong><small>دعا، نماز، صدقه و روزه؛ با زمان هر مورد در فایل صوتی و اعتبارش</small></span></a>';
+    h += '<a class="card c-teal ostcard hzcard" href="#/d/hefz" style="grid-template-columns:auto 1fr"><span class="badge">⛨</span><span class="t"><strong>حفاظت و دادخواهی</strong><small>حصار صبح، ورد شب، دعاهای قرآنی دادخواهی و برنامهٔ ۴۰ روزه</small></span></a>';
     h += '<a class="searchbar" href="#/search">⌕ جستجو در همهٔ دعاها و ترجمه‌ها</a>';
     h += '<div class="sec-h"><h2>فهرست دعاها</h2><button class="chipbtn" id="edit" aria-pressed="' + editing + '">' + (editing ? 'تمام ✓' : '↕ ترتیب و برنامه') + '</button></div>';
     h += '<ul class="cards' + (editing ? ' editing' : '') + '" id="cards">' + st.order.map(card).join('') + '</ul>';
@@ -374,7 +379,7 @@
     readId = id;
     var ids = st.order, i = ids.indexOf(id), nextId = null;
     for (var j = 1; j <= ids.length; j++) { var c = ids[(i + j) % ids.length]; if (c !== id && st.plan[c] && !isDone(c)) { nextId = c; break; } }
-    var done = isDone(id), inPlan = id !== 'sources' && id !== 'ostad';
+    var done = isDone(id), inPlan = !GUIDE[id];
     var h = '<div class="c-' + d.color + '"><div class="rprog" id="rprog"></div><div class="rbar"><a class="ib" href="#/" aria-label="بازگشت">→</a><h1>' + d.title + '</h1>' +
       '<button class="ib" id="aa" aria-label="اندازه و خط">Aa</button></div><div class="wrap">' +
       '<article class="frame"><div class="ch-h"><div class="orn">۞</div><span class="eyebrow">' + d.eyebrow + '</span><h2>' + d.title + '</h2>' + (d.sub ? '<p class="ch-sub">' + d.sub + '</p>' : '') + '</div>' +
@@ -441,6 +446,82 @@
         if (full && !isDone(id)) { setDone(id, true); var mk = document.getElementById('mk'); if (mk) { mk.classList.add('done'); mk.textContent = '✓ امروز خوانده شد'; } }
         save(); draw(); if (navigator.vibrate) navigator.vibrate(25);
         if (full) toast('هر چهار نماز امروز خوانده شد 🌿');
+      };
+      draw();
+    });
+    // tap counters for repeated dhikr (reset every day)
+    app.querySelectorAll('[data-cnt]').forEach(function (box) {
+      var key = box.dataset.cnt, goal = +box.dataset.goal, k = today();
+      var get = function () { return (st.cnt[k] || {})[key] || 0; };
+      var draw = function () {
+        var n = get(), full = n >= goal;
+        box.innerHTML = '<button class="cnt-b' + (full ? ' full' : '') + '"><b>' + fa(n) + '</b> از ' + fa(goal) + (full ? ' ✓' : '<small>هر بار بزنید</small>') + '</button>' +
+          (n ? '<button class="cnt-r" aria-label="صفر کردن">↺</button>' : '');
+      };
+      box.onclick = function (e) {
+        var m = st.cnt[k] = st.cnt[k] || {};
+        if (e.target.closest('.cnt-r')) m[key] = 0;
+        else if (e.target.closest('.cnt-b')) {
+          if (get() >= goal) return;
+          m[key] = get() + 1;
+          if (navigator.vibrate) navigator.vibrate(m[key] >= goal ? [60, 60, 60] : 15);
+          if (m[key] >= goal) toast('تمام شد ✓');
+        } else return;
+        Object.keys(st.cnt).forEach(function (d) { if (d < dkey(new Date(Date.now() - 7 * 864e5))) delete st.cnt[d]; });
+        save(); draw();
+      };
+      draw();
+    });
+    // guided four-step breathing
+    app.querySelectorAll('[data-breath]').forEach(function (box) {
+      var rounds = +box.dataset.breath, timer = null;
+      var PH = [['دم از بینی', 'in'], ['نگه دارید', 'in'], ['بازدم آرام', 'out'], ['نگه دارید', 'out']];
+      var idle = function () { box.innerHTML = '<div class="br-c out"><span>آماده</span></div><button class="btn">شروع تنفس (' + fa(rounds) + ' دور)</button>'; box.querySelector('.btn').onclick = run; };
+      var run = function () {
+        var r = 0, p = 0, t = 4;
+        box.innerHTML = '<div class="br-c out"><span></span><small></small></div><button class="btn ghost">توقف</button>';
+        var c = box.querySelector('.br-c'), lab = c.querySelector('span'), sm = c.querySelector('small');
+        var stop = function () { clearInterval(timer); timer = null; idle(); };
+        box.querySelector('.btn').onclick = stop;
+        var show = function () { c.className = 'br-c ' + PH[p][1]; lab.textContent = PH[p][0] + ' · ' + fa(t); sm.textContent = 'دور ' + fa(r + 1) + ' از ' + fa(rounds); };
+        show();
+        timer = setInterval(function () {
+          if (!box.isConnected) { clearInterval(timer); return; }
+          if (--t > 0) { lab.textContent = PH[p][0] + ' · ' + fa(t); return; }
+          t = 4; p++;
+          if (p === 4) { p = 0; r++; if (navigator.vibrate) navigator.vibrate(30); }
+          if (r === rounds) { clearInterval(timer); timer = null; box.innerHTML = '<div class="br-c out"><span>آرام شدید؛ شروع کنید</span></div>'; toast('تنفس تمام شد؛ بسم الله'); return; }
+          show();
+        }, 1000);
+      };
+      idle();
+    });
+    // 40-day checklist
+    app.querySelectorAll('.c40').forEach(function (box) {
+      var sure = false;
+      var draw = function () {
+        var c = st.c40, k = today();
+        if (!c.start) { box.innerHTML = '<button class="btn">شروع دورهٔ ۴۰ روزه از امروز</button>'; return; }
+        var s0 = new Date(c.start + 'T00:00:00'), day = Math.floor((new Date(k + 'T00:00:00') - s0) / 864e5) + 1;
+        var cells = '', done = 0;
+        for (var i = 0; i < 40; i++) {
+          var dk = dkey(new Date(s0.getFullYear(), s0.getMonth(), s0.getDate() + i)), on = !!c.d[dk];
+          if (on) done++;
+          cells += '<span class="c40-d' + (on ? ' on' : '') + (dk === k ? ' now' : '') + (dk > k ? ' fut' : '') + '">' + fa(i + 1) + '</span>';
+        }
+        var fin = day > 40 || done >= 40;
+        box.innerHTML = '<div class="c40-h">' + (fin ? 'دوره تمام شد؛ ' : 'روز ' + fa(Math.max(1, day)) + ' از ۴۰ · ') + fa(done) + ' روز انجام شد</div>' +
+          '<div class="c40-g">' + cells + '</div>' +
+          (fin ? '' : '<button class="btn wide' + (c.d[k] ? ' done' : '') + '" data-a="t">' + (c.d[k] ? '✓ امروز انجام شد' : 'امروز انجام دادم ✓') + '</button>') +
+          '<button class="btn ghost wide" data-a="r">' + (sure ? 'مطمئنید؟ دوباره بزنید تا از اول شروع شود' : (fin ? 'شروع دورهٔ تازه' : 'شروع دوباره از امروز')) + '</button>';
+      };
+      box.onclick = function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        var c = st.c40, k = today();
+        if (!c.start) { c.start = k; c.d = {}; toast('دورهٔ ۴۰ روزه شروع شد'); }
+        else if (b.dataset.a === 't') { c.d[k] = !c.d[k]; if (!c.d[k]) delete c.d[k]; if (navigator.vibrate) navigator.vibrate(25); }
+        else if (b.dataset.a === 'r') { if (!sure) { sure = true; draw(); return; } c.start = k; c.d = {}; toast('دوره از امروز شروع شد'); }
+        sure = false; save(); draw();
       };
       draw();
     });
